@@ -3,7 +3,7 @@ defmodule CLIX.MixProject do
 
   @version "0.1.0"
   @description "A utility-first, composable CLI framework."
-  @source_url "https://github.com/cozy-elixir/clix"
+  @source_url "https://github.com/combo-lab/clix"
 
   def project do
     [
