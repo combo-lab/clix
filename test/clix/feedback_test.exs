@@ -114,18 +114,62 @@ defmodule CLIX.FeedbackTest do
     end
   end
 
+  describe "help/_ with required opts" do
+    test "appends '(required)' to the help line in Options section" do
+      spec =
+        CLIX.Spec.new(
+          {:demo,
+           %{
+             opts: [
+               name: %{short: "n", long: "name", required: true, help: "the name"},
+               age: %{short: "a", long: "age", type: :integer, help: "the age"}
+             ]
+           }}
+        )
+
+      assert Feedback.help(spec) == """
+             Usage:
+               demo [OPTIONS]
+
+             Options:
+               -n, --name <NAME>  the name (required)
+               -a, --age <AGE>    the age\
+             """
+    end
+
+    test "shows '(required)' alone when help is empty" do
+      spec =
+        CLIX.Spec.new(
+          {:demo,
+           %{
+             opts: [
+               name: %{long: "name", required: true}
+             ]
+           }}
+        )
+
+      assert Feedback.help(spec) == """
+             Usage:
+               demo [OPTIONS]
+
+             Options:
+                   --name <NAME>  (required)\
+             """
+    end
+  end
+
   describe "format_error/1" do
     test "unknown arg" do
       assert Feedback.format_error({:unknown_arg, "joe"}) == "unrecognized argument 'joe'"
     end
 
     test "missing arg" do
-      assert Feedback.format_error({:missing_arg, %{message: nil, type: :string, value: nil, nargs: nil, value_name: "NAME"}}) ==
+      assert Feedback.format_error({:missing_arg, %{message: nil, type: :string, value: nil, nargs: :!, value_name: "NAME"}}) ==
                "missing value for argument '<NAME>'"
     end
 
     test "invalid arg" do
-      assert Feedback.format_error({:invalid_arg, %{message: nil, type: :string, value: "joe", nargs: nil, value_name: "NAME"}}) ==
+      assert Feedback.format_error({:invalid_arg, %{message: nil, type: :string, value: "joe", nargs: :!, value_name: "NAME"}}) ==
                "invalid value 'joe' for argument '<NAME>'"
 
       assert Feedback.format_error({:invalid_arg, %{message: nil, type: :string, value: "joe", nargs: :"?", value_name: "NAME"}}) ==
@@ -148,20 +192,27 @@ defmodule CLIX.FeedbackTest do
 
     test "missing opt value" do
       assert Feedback.format_error({
-               :missing_opt,
-               %{message: nil, type: :string, value: nil, action: :store, value_name: "NAME", prefixed_name: "--name"}
+               :missing_opt_value,
+               %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"}
              }) == "missing value for option '--name <NAME>'"
+    end
+
+    test "missing required opt" do
+      assert Feedback.format_error({
+               :missing_opt,
+               %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"}
+             }) == "missing required option '--name'"
     end
 
     test "invalid opt value" do
       assert Feedback.format_error({
                :invalid_opt,
-               %{message: nil, type: :string, value: "bad_name", action: :store, value_name: "NAME", prefixed_name: "--name"}
+               %{message: nil, type: :string, value: "bad_name", action: :set, value_name: "NAME", prefixed_opt_name: "--name"}
              }) == "invalid value 'bad_name' for option '--name <NAME>'"
 
       assert Feedback.format_error({
                :invalid_opt,
-               %{message: "invalid format", type: :string, value: "bad_name", action: :store, value_name: "NAME", prefixed_name: "--name"}
+               %{message: "invalid format", type: :string, value: "bad_name", action: :set, value_name: "NAME", prefixed_opt_name: "--name"}
              }) == "invalid value 'bad_name' for option '--name <NAME>': invalid format"
     end
   end

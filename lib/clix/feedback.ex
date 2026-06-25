@@ -265,9 +265,9 @@ defmodule CLIX.Feedback do
     header = "Options:"
 
     rows =
-      Enum.map(opts, fn opt ->
+      Enum.map(opts, fn {_opt_name, opt_spec} = opt ->
         str = build_opt_str(opt)
-        help = build_help(opt)
+        help = opt |> build_help() |> maybe_append_required(opt_spec)
         ["", str, "", help]
       end)
 
@@ -323,6 +323,12 @@ defmodule CLIX.Feedback do
   defp build_help({_, %{help: nil}}), do: ""
   defp build_help({_, %{help: help}}), do: String.trim_trailing(help)
 
+  defp maybe_append_required(help, %{required: true}) do
+    if help == "", do: "(required)", else: help <> " (required)"
+  end
+
+  defp maybe_append_required(help, _opt_spec), do: help
+
   defp build_epilogue_section(%{epilogue: nil}, _width), do: nil
   defp build_epilogue_section(%{epilogue: epilogue}, width), do: Formatter.format(epilogue, width)
 
@@ -355,23 +361,28 @@ defmodule CLIX.Feedback do
     "unknown option '#{raw_arg}'"
   end
 
+  def format_error({:missing_opt_value, opt_detail}) do
+    %{prefixed_opt_name: prefixed_opt_name, value_name: value_name} = opt_detail
+    "missing value for option '#{prefixed_opt_name} #{format_opt_value_name(value_name)}'"
+  end
+
   def format_error({:missing_opt, opt_detail}) do
-    %{prefixed_name: prefixed_name, value_name: value_name} = opt_detail
-    "missing value for option '#{prefixed_name} #{format_opt_value_name(value_name)}'"
+    %{prefixed_opt_name: prefixed_opt_name} = opt_detail
+    "missing required option '#{prefixed_opt_name}'"
   end
 
   def format_error({:invalid_opt, %{message: nil} = opt_detail}) do
-    %{prefixed_name: prefixed_name, value_name: value_name, value: value} = opt_detail
-    "invalid value '#{value}' for option '#{prefixed_name} #{format_opt_value_name(value_name)}'"
+    %{prefixed_opt_name: prefixed_opt_name, value_name: value_name, value: value} = opt_detail
+    "invalid value '#{value}' for option '#{prefixed_opt_name} #{format_opt_value_name(value_name)}'"
   end
 
   def format_error({:invalid_opt, %{message: message} = opt_detail}) do
-    %{prefixed_name: prefixed_name, value_name: value_name, value: value} = opt_detail
-    "invalid value '#{value}' for option '#{prefixed_name} #{format_opt_value_name(value_name)}': #{message}"
+    %{prefixed_opt_name: prefixed_opt_name, value_name: value_name, value: value} = opt_detail
+    "invalid value '#{value}' for option '#{prefixed_opt_name} #{format_opt_value_name(value_name)}': #{message}"
   end
 
   defp format_arg_value_name(value_name, nargs)
-  defp format_arg_value_name(value_name, nil), do: "<#{value_name}>"
+  defp format_arg_value_name(value_name, :!), do: "<#{value_name}>"
   defp format_arg_value_name(value_name, :"?"), do: "[#{value_name}]"
   defp format_arg_value_name(value_name, :*), do: "[#{value_name}]..."
   defp format_arg_value_name(value_name, :+), do: "<#{value_name}>..."
