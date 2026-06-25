@@ -6,6 +6,14 @@ defmodule CLIX.ParserTest do
 
   doctest Parser
 
+  # Public helper so the MFA form {:custom, {__MODULE__, :parse_date}} can resolve it.
+  def parse_date(string) do
+    case Date.from_iso8601(string) do
+      {:ok, _} = ok -> ok
+      {:error, _} -> {:error, "invalid date"}
+    end
+  end
+
   describe "args - :type attr" do
     test "default to :string" do
       spec = new_spec(%{args: [arg: %{}]})
@@ -25,8 +33,8 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["other"]) ==
                {[], %{}, %{},
                 [
-                  {:invalid_arg, %{message: nil, type: :boolean, value: "other", nargs: nil, value_name: "ARG"}},
-                  {:missing_arg, %{message: nil, type: :boolean, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:invalid_arg, %{message: nil, type: :boolean, value: "other", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :boolean, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
 
@@ -37,13 +45,13 @@ defmodule CLIX.ParserTest do
 
       assert Parser.parse(spec, ["-1"]) ==
                {[], %{}, %{},
-                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: nil, value_name: "ARG"}}]}
+                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: :!, value_name: "ARG"}}]}
 
       assert Parser.parse(spec, ["other"]) ==
                {[], %{}, %{},
                 [
-                  {:invalid_arg, %{message: nil, type: :integer, value: "other", nargs: nil, value_name: "ARG"}},
-                  {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:invalid_arg, %{message: nil, type: :integer, value: "other", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
 
@@ -54,13 +62,13 @@ defmodule CLIX.ParserTest do
 
       assert Parser.parse(spec, ["-1.1"]) ==
                {[], %{}, %{},
-                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :float, value: nil, nargs: nil, value_name: "ARG"}}]}
+                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :float, value: nil, nargs: :!, value_name: "ARG"}}]}
 
       assert Parser.parse(spec, ["other"]) ==
                {[], %{}, %{},
                 [
-                  {:invalid_arg, %{message: nil, type: :float, value: "other", nargs: nil, value_name: "ARG"}},
-                  {:missing_arg, %{message: nil, type: :float, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:invalid_arg, %{message: nil, type: :float, value: "other", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :float, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
 
@@ -86,18 +94,31 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["bad_date"]) ==
                {[], %{}, %{},
                 [
-                  {:invalid_arg, %{message: "invalid date", type: :custom, value: "bad_date", nargs: nil, value_name: "ARG"}},
-                  {:missing_arg, %{message: nil, type: :custom, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:invalid_arg, %{message: "invalid date", type: :custom, value: "bad_date", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :custom, value: nil, nargs: :!, value_name: "ARG"}}
+                ]}
+    end
+
+    test ":custom with {module, function} (Macro.escape-friendly)" do
+      spec = new_spec(%{args: [arg: %{type: {:custom, {__MODULE__, :parse_date}}}]})
+
+      assert Parser.parse(spec, ["2015-01-23"]) == {[], %{arg: ~D[2015-01-23]}, %{}, []}
+
+      assert Parser.parse(spec, ["bad_date"]) ==
+               {[], %{}, %{},
+                [
+                  {:invalid_arg, %{message: "invalid date", type: :custom, value: "bad_date", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :custom, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
   end
 
   describe "args - :nargs attr" do
     test "nil" do
-      spec = new_spec(%{args: [arg: %{nargs: nil}]})
+      spec = new_spec(%{args: [arg: %{nargs: :!}]})
 
       assert Parser.parse(spec, []) ==
-               {[], %{}, %{}, [{:missing_arg, %{message: nil, type: :string, value: nil, nargs: nil, value_name: "ARG"}}]}
+               {[], %{}, %{}, [{:missing_arg, %{message: nil, type: :string, value: nil, nargs: :!, value_name: "ARG"}}]}
 
       assert Parser.parse(spec, ["a"]) == {[], %{arg: "a"}, %{}, []}
       assert Parser.parse(spec, ["a", "b"]) == {[], %{arg: "a"}, %{}, [{:unknown_arg, "b"}]}
@@ -171,7 +192,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, []) ==
                {[], %{}, %{},
                 [
-                  {:missing_arg, %{message: nil, type: :string, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:missing_arg, %{message: nil, type: :string, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
 
@@ -181,8 +202,8 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["not-integer"]) ==
                {[], %{}, %{},
                 [
-                  {:invalid_arg, %{message: nil, type: :integer, value: "not-integer", nargs: nil, value_name: "ARG"}},
-                  {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: nil, value_name: "ARG"}}
+                  {:invalid_arg, %{message: nil, type: :integer, value: "not-integer", nargs: :!, value_name: "ARG"}},
+                  {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: :!, value_name: "ARG"}}
                 ]}
     end
   end
@@ -314,7 +335,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-1", "X", "-1"]) ==
                {[], %{arg: []}, %{opt: "X"},
                 [
-                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "-1"}}
+                  {:missing_opt_value, %{message: nil, type: :string, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "-1"}}
                 ]}
 
       assert Parser.parse(spec, ["-1", "-1"]) == {[], %{arg: []}, %{opt: "-1"}, []}
@@ -353,7 +374,8 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["--opt="]) ==
                {[], %{}, %{opt: nil},
                 [
-                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}}
+                  {:missing_opt_value,
+                   %{message: nil, type: :string, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}}
                 ]}
 
       assert Parser.parse(spec, ["--no-opt="]) == {[], %{}, %{opt: nil}, [{:unknown_opt, "--no-opt"}]}
@@ -375,7 +397,7 @@ defmodule CLIX.ParserTest do
                {[], %{}, %{opt: false},
                 [
                   {:invalid_opt,
-                   %{message: nil, type: :boolean, value: "other", action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}}
+                   %{message: nil, type: :boolean, value: "other", action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}}
                 ]}
 
       assert Parser.parse(spec, ["--no-opt"]) == {[], %{}, %{opt: false}, []}
@@ -393,7 +415,7 @@ defmodule CLIX.ParserTest do
                      message: nil,
                      type: {:boolean, :negated},
                      value: "true",
-                     action: :store,
+                     action: :set,
                      value_name: "OPT",
                      prefixed_opt_name: "--no-opt"
                    }}
@@ -407,7 +429,7 @@ defmodule CLIX.ParserTest do
                      message: nil,
                      type: {:boolean, :negated},
                      value: "false",
-                     action: :store,
+                     action: :set,
                      value_name: "OPT",
                      prefixed_opt_name: "--no-opt"
                    }}
@@ -421,7 +443,7 @@ defmodule CLIX.ParserTest do
                      message: nil,
                      type: {:boolean, :negated},
                      value: "other",
-                     action: :store,
+                     action: :set,
                      value_name: "OPT",
                      prefixed_opt_name: "--no-opt"
                    }}
@@ -433,7 +455,10 @@ defmodule CLIX.ParserTest do
 
       assert Parser.parse(spec, ["--opt"]) ==
                {[], %{}, %{opt: nil},
-                [{:missing_opt, %{message: nil, type: :integer, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}}]}
+                [
+                  {:missing_opt_value,
+                   %{message: nil, type: :integer, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}}
+                ]}
 
       assert Parser.parse(spec, ["--opt", "30"]) == {[], %{}, %{opt: 30}, []}
       assert Parser.parse(spec, ["--opt", "-30"]) == {[], %{}, %{opt: -30}, []}
@@ -445,7 +470,7 @@ defmodule CLIX.ParserTest do
                     message: nil,
                     type: :integer,
                     value: "other",
-                    action: :store,
+                    action: :set,
                     value_name: "OPT",
                     prefixed_opt_name: "--opt"
                   }
@@ -453,7 +478,16 @@ defmodule CLIX.ParserTest do
 
       assert Parser.parse(spec, ["--opt="]) ==
                {[], %{}, %{opt: nil},
-                [missing_opt: %{message: nil, type: :integer, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}]}
+                [
+                  missing_opt_value: %{
+                    message: nil,
+                    type: :integer,
+                    value: nil,
+                    action: :set,
+                    value_name: "OPT",
+                    prefixed_opt_name: "--opt"
+                  }
+                ]}
 
       assert Parser.parse(spec, ["--opt=30"]) == {[], %{}, %{opt: 30}, []}
       assert Parser.parse(spec, ["--opt=-30"]) == {[], %{}, %{opt: -30}, []}
@@ -465,7 +499,7 @@ defmodule CLIX.ParserTest do
                     message: nil,
                     type: :integer,
                     value: "other",
-                    action: :store,
+                    action: :set,
                     value_name: "OPT",
                     prefixed_opt_name: "--opt"
                   }
@@ -476,7 +510,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-o"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  missing_opt: %{message: nil, type: :integer, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "-o"}
+                  missing_opt_value: %{message: nil, type: :integer, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "-o"}
                 ]}
 
       assert Parser.parse(spec, ["-o", "30"]) == {[], %{}, %{opt: 30}, []}
@@ -485,7 +519,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-o", "other"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  invalid_opt: %{message: nil, type: :integer, value: "other", action: :store, value_name: "OPT", prefixed_opt_name: "-o"}
+                  invalid_opt: %{message: nil, type: :integer, value: "other", action: :set, value_name: "OPT", prefixed_opt_name: "-o"}
                 ]}
 
       assert Parser.parse(spec, ["-o30"]) == {[], %{}, %{opt: 30}, []}
@@ -498,7 +532,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["--opt"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  missing_opt: %{message: nil, type: :float, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}
+                  missing_opt_value: %{message: nil, type: :float, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}
                 ]}
 
       assert Parser.parse(spec, ["--opt", "30.0"]) == {[], %{}, %{opt: 30.0}, []}
@@ -507,13 +541,13 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["--opt", "other"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  invalid_opt: %{message: nil, type: :float, value: "other", action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}
+                  invalid_opt: %{message: nil, type: :float, value: "other", action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}
                 ]}
 
       assert Parser.parse(spec, ["--opt="]) ==
                {[], %{}, %{opt: nil},
                 [
-                  missing_opt: %{message: nil, type: :float, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}
+                  missing_opt_value: %{message: nil, type: :float, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}
                 ]}
 
       assert Parser.parse(spec, ["--opt=30.0"]) == {[], %{}, %{opt: 30.0}, []}
@@ -522,7 +556,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["--opt=other"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  invalid_opt: %{message: nil, type: :float, value: "other", action: :store, value_name: "OPT", prefixed_opt_name: "--opt"}
+                  invalid_opt: %{message: nil, type: :float, value: "other", action: :set, value_name: "OPT", prefixed_opt_name: "--opt"}
                 ]}
 
       assert Parser.parse(spec, ["--no-opt="]) == {[], %{}, %{opt: nil}, [{:unknown_opt, "--no-opt"}]}
@@ -530,7 +564,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-o"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  missing_opt: %{message: nil, type: :float, value: nil, action: :store, value_name: "OPT", prefixed_opt_name: "-o"}
+                  missing_opt_value: %{message: nil, type: :float, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "-o"}
                 ]}
 
       assert Parser.parse(spec, ["-o", "30.0"]) == {[], %{}, %{opt: 30.0}, []}
@@ -539,7 +573,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-o", "other"]) ==
                {[], %{}, %{opt: nil},
                 [
-                  {:invalid_opt, %{message: nil, type: :float, value: "other", action: :store, value_name: "OPT", prefixed_opt_name: "-o"}}
+                  {:invalid_opt, %{message: nil, type: :float, value: "other", action: :set, value_name: "OPT", prefixed_opt_name: "-o"}}
                 ]}
 
       assert Parser.parse(spec, ["-o30.0"]) == {[], %{}, %{opt: 30.0}, []}
@@ -548,7 +582,7 @@ defmodule CLIX.ParserTest do
   end
 
   describe "opts - :action attr" do
-    test "default to :store" do
+    test "default to :set" do
       spec = new_spec(%{opts: [opt: %{short: "o"}]})
       assert Parser.parse(spec, ["-o", "value1", "-o", "value2"]) == {[], %{}, %{opt: "value2"}, []}
 
@@ -559,21 +593,18 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["-o", "--no-opt"]) == {[], %{}, %{opt: false}, []}
     end
 
-    test ":store" do
-      spec = new_spec(%{opts: [opt: %{short: "o", action: :store}]})
+    test ":set" do
+      spec = new_spec(%{opts: [opt: %{short: "o", action: :set}]})
       assert Parser.parse(spec, ["-o", "value1", "-o", "value2"]) == {[], %{}, %{opt: "value2"}, []}
 
-      spec = new_spec(%{opts: [opt: %{short: "o", type: :boolean, action: :store}]})
+      spec = new_spec(%{opts: [opt: %{short: "o", type: :boolean, action: :set}]})
       assert Parser.parse(spec, ["-o", "-o"]) == {[], %{}, %{opt: true}, []}
 
-      spec = new_spec(%{opts: [opt: %{short: "o", long: "opt", type: :boolean, action: :store}]})
+      spec = new_spec(%{opts: [opt: %{short: "o", long: "opt", type: :boolean, action: :set}]})
       assert Parser.parse(spec, ["-o", "--no-opt"]) == {[], %{}, %{opt: false}, []}
     end
 
     test ":count" do
-      spec = new_spec(%{opts: [opt: %{short: "o", action: :count}]})
-      assert Parser.parse(spec, ["-o", "value", "-o", "value"]) == {[], %{}, %{opt: 2}, []}
-
       spec = new_spec(%{opts: [opt: %{short: "o", type: :boolean, action: :count}]})
       assert Parser.parse(spec, ["-o", "-o"]) == {[], %{}, %{opt: 2}, []}
     end
@@ -590,6 +621,76 @@ defmodule CLIX.ParserTest do
   describe "opts - :default attr" do
   end
 
+  describe "opts - :required attr" do
+    test "default to false: missing opt falls back to default" do
+      spec = new_spec(%{opts: [opt: %{long: "opt"}]})
+      assert Parser.parse(spec, []) == {[], %{}, %{opt: nil}, []}
+    end
+
+    test "required: true with --long emits missing_required_opt when absent" do
+      spec = new_spec(%{opts: [name: %{long: "name", required: true}]})
+
+      assert Parser.parse(spec, []) ==
+               {[], %{}, %{},
+                [
+                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"}}
+                ]}
+    end
+
+    test "required: true with only -short uses -short in the error" do
+      spec = new_spec(%{opts: [name: %{short: "n", required: true}]})
+
+      assert Parser.parse(spec, []) ==
+               {[], %{}, %{},
+                [
+                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "-n"}}
+                ]}
+    end
+
+    test "required: true with both -short and --long prefers --long in the error" do
+      spec = new_spec(%{opts: [name: %{short: "n", long: "name", required: true}]})
+
+      assert Parser.parse(spec, []) ==
+               {[], %{}, %{},
+                [
+                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"}}
+                ]}
+    end
+
+    test "required: true is satisfied when the opt is given" do
+      spec = new_spec(%{opts: [name: %{long: "name", required: true}]})
+      assert Parser.parse(spec, ["--name", "Joe"]) == {[], %{}, %{name: "Joe"}, []}
+    end
+
+    test "required: true coexists with other opts and errors are collected" do
+      spec =
+        new_spec(%{
+          opts: [
+            name: %{long: "name", required: true},
+            age: %{long: "age", type: :integer}
+          ]
+        })
+
+      assert Parser.parse(spec, ["--age", "30"]) ==
+               {[], %{}, %{age: 30},
+                [
+                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"}}
+                ]}
+    end
+
+    test "required: true with action: :append - never given is missing" do
+      spec = new_spec(%{opts: [tag: %{long: "tag", action: :append, required: true}]})
+
+      assert Parser.parse(spec, []) ==
+               {[], %{}, %{},
+                [
+                  {:missing_opt, %{message: nil, type: :string, value: nil, action: :append, value_name: "TAG", prefixed_opt_name: "--tag"}}
+                ]}
+
+      assert Parser.parse(spec, ["--tag", "a", "--tag", "b"]) == {[], %{}, %{tag: ["a", "b"]}, []}
+    end
+  end
+
   test "collects multiple errors" do
     spec =
       new_spec(%{
@@ -597,14 +698,14 @@ defmodule CLIX.ParserTest do
           born: %{}
         ],
         opts: [
-          name: %{short: "n", long: "name"},
+          name: %{short: "n", long: "name", required: true},
           age: %{short: "a", long: "age", type: :integer},
           city: %{short: "c", long: "city"}
         ]
       })
 
-    assert Parser.parse(spec, ["--unknown1", "--unknown2", "--name", "Joe", "--age", "forever", "--city"]) ==
-             {[], %{}, %{age: nil, city: nil, name: "Joe"},
+    assert Parser.parse(spec, ["--unknown1", "--unknown2", "--age", "forever", "--city"]) ==
+             {[], %{}, %{age: nil, city: nil},
               [
                 unknown_opt: "--unknown1",
                 unknown_opt: "--unknown2",
@@ -612,12 +713,13 @@ defmodule CLIX.ParserTest do
                   message: nil,
                   type: :integer,
                   value: "forever",
-                  action: :store,
+                  action: :set,
                   value_name: "AGE",
                   prefixed_opt_name: "--age"
                 },
-                missing_opt: %{message: nil, type: :string, value: nil, action: :store, value_name: "CITY", prefixed_opt_name: "--city"},
-                missing_arg: %{message: nil, type: :string, value: nil, nargs: nil, value_name: "BORN"}
+                missing_opt_value: %{message: nil, type: :string, value: nil, action: :set, value_name: "CITY", prefixed_opt_name: "--city"},
+                missing_opt: %{message: nil, type: :string, value: nil, action: :set, value_name: "NAME", prefixed_opt_name: "--name"},
+                missing_arg: %{message: nil, type: :string, value: nil, nargs: :!, value_name: "BORN"}
               ]}
   end
 

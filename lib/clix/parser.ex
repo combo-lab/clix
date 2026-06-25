@@ -28,7 +28,7 @@ defmodule CLIX.Parser do
       iex> # bad argv
       iex> CLIX.Parser.parse(spec, [])
       {[], %{}, %{debug: false, verbose: 0, to: []}, [
-        {:missing_arg, %{message: nil, type: :string, value: nil, value_name: "MSG", nargs: nil}}
+        {:missing_arg, %{message: nil, type: :string, value: nil, value_name: "MSG", nargs: :!}}
       ]}
       iex>
       iex> # good argv in strict order
@@ -129,12 +129,12 @@ defmodule CLIX.Parser do
       iex> CLIX.Parser.parse(spec, [])
       {[], %{}, %{}, [
         {:missing_arg, %{message: nil, type: :string, value: nil, nargs: :+, value_name: "SRC"}},
-        {:missing_arg, %{message: nil, type: :string, value: nil, nargs: nil, value_name: "DST"}}
+        {:missing_arg, %{message: nil, type: :string, value: nil, nargs: :!, value_name: "DST"}}
       ]}
       iex>
       iex> CLIX.Parser.parse(spec, ["src1"])
       {[], %{src: ["src1"]}, %{}, [
-        {:missing_arg, %{message: nil, type: :string, value: nil, nargs: nil, value_name: "DST"}}
+        {:missing_arg, %{message: nil, type: :string, value: nil, nargs: :!, value_name: "DST"}}
       ]}
       iex>
       iex> CLIX.Parser.parse(spec, ["src1", "dst"])
@@ -279,6 +279,7 @@ defmodule CLIX.Parser do
           | {:invalid_arg, arg_error_detail()}
           | {:unknown_opt, raw_arg()}
           | {:missing_opt, opt_error_detail()}
+          | {:missing_opt_value, opt_error_detail()}
           | {:invalid_opt, opt_error_detail()}
   @type arg_error_detail :: %{
           :value_name => Spec.value_name(),
@@ -288,7 +289,7 @@ defmodule CLIX.Parser do
           :message => String.t() | nil
         }
   @type opt_error_detail :: %{
-          :prefixed_name => String.t(),
+          :prefixed_opt_name => String.t(),
           :value_name => Spec.value_name(),
           :type => Spec.type(),
           :action => Spec.action(),
@@ -432,7 +433,7 @@ defmodule CLIX.Parser do
             end
 
           :error ->
-            error = {:missing_opt, build_opt_detail(attrs, nil, prefixed_opt_name)}
+            error = {:missing_opt_value, build_opt_detail(attrs, nil, prefixed_opt_name)}
             parse_stage1(mode, config, rest_argv, pos_argv, {opt_args, [error | opt_errors]})
         end
 
@@ -468,7 +469,7 @@ defmodule CLIX.Parser do
             end
 
           :error ->
-            error = {:missing_opt, build_opt_detail(attrs, nil, prefixed_opt_name)}
+            error = {:missing_opt_value, build_opt_detail(attrs, nil, prefixed_opt_name)}
             parse_stage1(mode, config, rest_argv, pos_argv, {opt_args, [error | opt_errors]})
         end
 
@@ -583,7 +584,7 @@ defmodule CLIX.Parser do
   defp take_opt_value(_type, nil, [value | rest]), do: {:ok, value, rest}
   defp take_opt_value(_type, value, argv), do: {:ok, value, argv}
 
-  defp store_opt_arg(opt_args, :store, key, value), do: Map.put(opt_args, key, value)
+  defp store_opt_arg(opt_args, :set, key, value), do: Map.put(opt_args, key, value)
 
   defp store_opt_arg(opt_args, :count, key, _value), do: Map.update(opt_args, key, 1, &(&1 + 1))
 
@@ -594,10 +595,22 @@ defmodule CLIX.Parser do
     %{opt_specs: opt_specs} = config
 
     Enum.reduce(opt_specs, {opt_args, []}, fn {key, opt_spec}, {opt_args, opt_errors} ->
-      if Map.has_key?(opt_args, key) do
-        {opt_args, opt_errors}
-      else
-        {Map.put(opt_args, key, opt_spec.default), opt_errors}
+      cond do
+        Map.has_key?(opt_args, key) ->
+          {opt_args, opt_errors}
+
+        opt_spec.required ->
+          prefixed_opt_name =
+            cond do
+              opt_spec.long -> @long_opt_prefix <> opt_spec.long
+              opt_spec.short -> @short_opt_prefix <> opt_spec.short
+            end
+
+          error = {:missing_opt, build_opt_detail(opt_spec, nil, prefixed_opt_name)}
+          {opt_args, [error | opt_errors]}
+
+        true ->
+          {Map.put(opt_args, key, opt_spec.default), opt_errors}
       end
     end)
   end
@@ -637,7 +650,7 @@ defmodule CLIX.Parser do
     pos_specs
     |> Enum.map(fn spec ->
       case spec.nargs do
-        nil -> "([A])"
+        :! -> "([A])"
         :"?" -> "(A?)"
         :* -> "(A*)"
         :+ -> "(A+)"
@@ -657,7 +670,10 @@ defmodule CLIX.Parser do
   end
 
   defp consume_pos_argv([{pos_spec, count} | rest_rules], pos_argv, pos_args, pos_errors) do
-    %{key: key, type: type, default: default, nargs: nargs} = pos_spec
+    %{key: key, type: type, nargs: nargs} = pos_spec
+    # Required pos_specs (:! / :+) have no :default after the spec's three-phase
+    # build; unwrap_pos_values/3 ignores it for those nargs anyway.
+    default = Map.get(pos_spec, :default)
 
     {argv, rest_argv} = Enum.split(pos_argv, count)
 
@@ -693,7 +709,7 @@ defmodule CLIX.Parser do
   end
 
   defp unwrap_pos_values(nargs, values, default)
-  defp unwrap_pos_values(nil, [value], _default), do: value
+  defp unwrap_pos_values(:!, [value], _default), do: value
   defp unwrap_pos_values(:"?", [], default), do: default
   defp unwrap_pos_values(:"?", [value], _default), do: value
   defp unwrap_pos_values(:*, [], default), do: default
@@ -711,7 +727,7 @@ defmodule CLIX.Parser do
     %{pos_specs: pos_specs} = config
 
     Enum.reduce(pos_specs, {pos_args, []}, fn pos_spec, {pos_args, pos_errors} ->
-      %{key: key, default: default} = pos_spec
+      %{key: key} = pos_spec
 
       cond do
         not Map.has_key?(pos_args, key) && required_pos_spec?(pos_spec) ->
@@ -719,7 +735,7 @@ defmodule CLIX.Parser do
           {pos_args, [error | pos_errors]}
 
         not Map.has_key?(pos_args, key) ->
-          {Map.put(pos_args, key, default), pos_errors}
+          {Map.put(pos_args, key, pos_spec.default), pos_errors}
 
         true ->
           {pos_args, pos_errors}
@@ -727,7 +743,7 @@ defmodule CLIX.Parser do
     end)
   end
 
-  defp required_pos_spec?(%{nargs: nil}), do: true
+  defp required_pos_spec?(%{nargs: :!}), do: true
   defp required_pos_spec?(%{nargs: :"?"}), do: false
   defp required_pos_spec?(%{nargs: :*}), do: false
   defp required_pos_spec?(%{nargs: :+}), do: true
@@ -772,6 +788,13 @@ defmodule CLIX.Parser do
 
   defp cast_value({:custom, fun}, value) when is_function(fun, 1) do
     case fun.(value) do
+      {:ok, value} -> {:ok, value}
+      {:error, message} -> {:error, message}
+    end
+  end
+
+  defp cast_value({:custom, {mod, fun}}, value) when is_atom(mod) and is_atom(fun) do
+    case apply(mod, fun, [value]) do
       {:ok, value} -> {:ok, value}
       {:error, message} -> {:error, message}
     end
