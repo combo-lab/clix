@@ -30,4 +30,20 @@ defmodule CLIX.SpecTest do
 
     assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode"}]}})
   end
+
+  test ":count action requires :boolean type" do
+    assert_raise ArgumentError,
+                 "opt :verbose under the cmd path [:example] - expected :type to be :boolean when :action is :count, got: :string",
+                 fn ->
+                   Spec.new({:example, %{opts: [verbose: %{short: "v", action: :count}]}})
+                 end
+
+    assert_raise ArgumentError,
+                 "opt :verbose under the cmd path [:example] - expected :type to be :boolean when :action is :count, got: :integer",
+                 fn ->
+                   Spec.new({:example, %{opts: [verbose: %{short: "v", type: :integer, action: :count}]}})
+                 end
+
+    assert {_, _} = Spec.new({:example, %{opts: [verbose: %{short: "v", type: :boolean, action: :count}]}})
+  end
 end

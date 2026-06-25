@@ -8,6 +8,13 @@ defmodule CLIX.Spec do
   @typedoc "The spec."
   @type t :: {cmd_name(), cmd_spec()}
 
+  @type help :: String.t() | nil
+  @type summary :: String.t() | nil
+  @type description :: String.t() | nil
+  @type epilogue :: String.t() | nil
+
+  @type value_name :: String.t() | nil
+
   @typedoc """
   The name of a command.
 
@@ -23,13 +30,13 @@ defmodule CLIX.Spec do
   option.
   """
   @type cmd_spec :: %{
-          help: String.t() | nil,
-          summary: String.t() | nil,
-          description: String.t() | nil,
+          help: help(),
+          summary: summary(),
+          description: description(),
           cmds: [{cmd_name(), cmd_spec()}],
           args: [{arg_name(), arg_spec()}],
           opts: [{opt_name(), opt_spec()}],
-          epilogue: String.t() | nil
+          epilogue: epilogue()
         }
 
   @typedoc "The type which the argument will be parsed as."
@@ -51,7 +58,7 @@ defmodule CLIX.Spec do
   @typedoc """
   The number of arguments that should be consumed.
 
-    * `nil` - consume one argument.
+    * `:!` - consume one argument.
     * `:"?"` - consume zero or one argument.
     * `:*` - consume zero or more arguments.
     * `:+` - consume one or more arguments.
@@ -60,40 +67,42 @@ defmodule CLIX.Spec do
 
   |                 | required | optional |
   |-----------------|----------|----------|
-  | single value    | `nil`    | `:"?"`   |
+  | single value    | `:!`     | `:"?"`   |
   | multiple values | `:+`     | `:*`     |
 
   """
-  @type nargs :: nil | :"?" | :* | :+
-
-  @type action :: :store | :count | :append
+  @type nargs :: :! | :"?" | :* | :+
 
   @typedoc "The name of a positional argument."
   @type arg_name :: atom()
 
-  @typedoc "The parsing spec of positional argument."
+  @typedoc "The parsing spec of a positional argument."
   @type arg_spec :: %{
           optional(:type) => type(),
           optional(:nargs) => nargs(),
           optional(:default) => any(),
           optional(:value_name) => value_name(),
-          optional(:help) => String.t() | nil
+          optional(:help) => help()
         }
 
-  @typedoc "The name of an optional argument."
+  @type short :: String.t() | nil
+  @type long :: String.t() | nil
+  @type action :: :set | :count | :append
+
+  @typedoc "The name of an option."
   @type opt_name :: atom()
-  @typedoc "The parsing spec of optional argument."
+
+  @typedoc "The parsing spec of an option."
   @type opt_spec :: %{
-          optional(:short) => String.t() | nil,
-          optional(:long) => String.t() | nil,
+          optional(:short) => short(),
+          optional(:long) => long(),
           optional(:type) => type(),
           optional(:action) => action(),
           optional(:default) => any(),
+          optional(:required) => boolean(),
           optional(:value_name) => value_name(),
-          optional(:help) => String.t() | nil
+          optional(:help) => help()
         }
-
-  @type value_name :: String.t() | nil
 
   @doc """
   Builds a spec from raw spec.
@@ -111,6 +120,7 @@ defmodule CLIX.Spec do
 
   defp cast_cmd_pair({cmd_name, cmd_spec}) do
     default_cmd_spec = %{
+      help: nil,
       summary: nil,
       description: nil,
       cmds: [],
@@ -128,18 +138,19 @@ defmodule CLIX.Spec do
       cmd_spec
       |> Map.update!(:args, fn args -> Enum.map(args, &cast_arg_pair(&1)) end)
       |> Map.update!(:opts, fn opts -> Enum.map(opts, &cast_opt_pair(&1)) end)
+      # Intentionally placed at the end, because I want to do breadth-first casting.
       |> Map.update!(:cmds, fn cmds -> Enum.map(cmds, &cast_cmd_pair(&1)) end)
 
     {cmd_name, cmd_spec}
   end
 
-  defp put_cmd_default_help(%{help: _} = cmd_spec), do: cmd_spec
-  defp put_cmd_default_help(cmd_spec), do: Map.put(cmd_spec, :help, cmd_spec.summary)
+  defp put_cmd_default_help(%{help: nil} = cmd_spec), do: Map.put(cmd_spec, :help, cmd_spec.summary)
+  defp put_cmd_default_help(cmd_spec), do: cmd_spec
 
   defp cast_arg_pair({arg_name, arg_spec}) when is_atom(arg_name) and is_map(arg_spec) do
     default_arg_spec = %{
       type: :string,
-      nargs: nil,
+      nargs: :!,
       value_name: nil,
       help: nil
     }
@@ -154,7 +165,7 @@ defmodule CLIX.Spec do
   end
 
   defp put_arg_default(%{default: _} = arg_spec), do: arg_spec
-  defp put_arg_default(%{nargs: nil} = arg_spec), do: Map.put(arg_spec, :default, nil)
+  defp put_arg_default(%{nargs: :!} = arg_spec), do: Map.put(arg_spec, :default, nil)
   defp put_arg_default(%{nargs: :"?"} = arg_spec), do: Map.put(arg_spec, :default, nil)
   defp put_arg_default(%{nargs: :*} = arg_spec), do: Map.put(arg_spec, :default, [])
   defp put_arg_default(%{nargs: :+} = arg_spec), do: Map.put(arg_spec, :default, [])
@@ -173,7 +184,8 @@ defmodule CLIX.Spec do
       short: nil,
       long: nil,
       type: :string,
-      action: :store,
+      action: :set,
+      required: false,
       help: nil
     }
 
@@ -187,8 +199,8 @@ defmodule CLIX.Spec do
   end
 
   defp put_opt_default(%{default: _} = opt_spec), do: opt_spec
-  defp put_opt_default(%{action: :store, type: :boolean} = opt_spec), do: Map.put(opt_spec, :default, false)
-  defp put_opt_default(%{action: :store, type: _} = opt_spec), do: Map.put(opt_spec, :default, nil)
+  defp put_opt_default(%{action: :set, type: :boolean} = opt_spec), do: Map.put(opt_spec, :default, false)
+  defp put_opt_default(%{action: :set, type: _} = opt_spec), do: Map.put(opt_spec, :default, nil)
   defp put_opt_default(%{action: :count, type: _} = opt_spec), do: Map.put(opt_spec, :default, 0)
   defp put_opt_default(%{action: :append, type: _} = opt_spec), do: Map.put(opt_spec, :default, [])
 
@@ -241,6 +253,14 @@ defmodule CLIX.Spec do
       raise ArgumentError,
             location(cmd_path, {:opt, opt_name}) <>
               "expected :long to be a multi-chars string, got: #{inspect(long)}"
+    end
+
+    %{type: type, action: action} = opt_spec
+
+    if action == :count and type !== :boolean do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :type to be :boolean when :action is :count, got: #{inspect(type)}"
     end
   end
 
