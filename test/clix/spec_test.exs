@@ -52,15 +52,16 @@ defmodule CLIX.SpecTest do
       assert {_, _} = Spec.new({:example, %{args: [a: %{nargs: :"?"}, b: %{nargs: :"?"}]}})
     end
 
-    test ":type must be a known atom or {:custom, fun_of_arity_1}" do
+    test ":type must be a known atom, {:custom, fun}, or {:custom, {mod, fun}}" do
       assert_raise ArgumentError,
                    "arg :file under the cmd path [:example] - expected :type to be one of " <>
-                     "[:string, :boolean, :integer, :float, {:custom, fun_of_arity_1}], got: :unknown",
+                     "[:string, :boolean, :integer, :float, {:custom, fun}, " <>
+                     "{:custom, {mod, fun}}], got: :unknown",
                    fn ->
                      Spec.new({:example, %{args: [file: %{type: :unknown}]}})
                    end
 
-      # :custom with non-function
+      # :custom with non-function value
       assert_raise ArgumentError,
                    ~r/expected :type to be one of/,
                    fn ->
@@ -74,9 +75,20 @@ defmodule CLIX.SpecTest do
                      Spec.new({:example, %{args: [file: %{type: {:custom, fn -> :ok end}}]}})
                    end
 
-      # good :custom
+      # :custom with bad MFA shape (non-atom function name)
+      assert_raise ArgumentError,
+                   ~r/expected :type to be one of/,
+                   fn ->
+                     Spec.new({:example, %{args: [file: %{type: {:custom, {Date, "from_iso8601"}}}]}})
+                   end
+
+      # good :custom with anonymous function
       assert {_, _} =
                Spec.new({:example, %{args: [file: %{type: {:custom, fn _ -> {:ok, 1} end}}]}})
+
+      # good :custom with named function (Macro.escape-friendly)
+      assert {_, _} =
+               Spec.new({:example, %{args: [file: %{type: {:custom, {Date, :from_iso8601}}}]}})
     end
 
     test ":nargs must be a known atom" do

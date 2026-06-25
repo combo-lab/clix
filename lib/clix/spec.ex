@@ -3,6 +3,35 @@ defmodule CLIX.Spec do
   The spec builder.
 
   A spec is the basis for parsing, feedback generation, etc.
+
+  ## Building at compile time
+
+  `new/1` performs casting and validation eagerly, then returns a finalized
+  spec. For CLI apps whose spec is fixed, you can pay this cost **once at
+  compile time** by assigning the result to a module attribute:
+
+      defmodule MyCLI do
+        @cli_spec CLIX.Spec.new(
+                    {:my_cli,
+                     %{
+                       opts: [verbose: %{long: "verbose", type: :boolean}]
+                     }}
+                  )
+
+        def main(argv) do
+          CLIX.Parser.parse(@cli_spec, argv)
+        end
+      end
+
+  Elixir evaluates the right-hand side of `@cli_spec` when the module is
+  compiled and inlines the resulting spec wherever `@cli_spec` is referenced.
+  An invalid spec will fail `mix compile` with the same `ArgumentError` you'd
+  see at runtime — but **at runtime, no per-call work is repeated**.
+
+  If your spec uses `:custom` types, prefer the `{:custom, {mod, fun}}` form
+  over an inline anonymous function: the named-function form is pure data
+  (atoms + tuples), so it survives `Macro.escape/1` cleanly and works in any
+  compile-time context (module attributes, custom macros, etc.).
   """
 
   @typedoc "The spec."
@@ -49,11 +78,21 @@ defmodule CLIX.Spec do
 
   @typedoc """
   Custom type.
+
+  Two forms are accepted:
+
+    * `{:custom, fun}` — `fun` is a function of arity 1. Works for inline
+      anonymous functions and captures like `&MyMod.parse/1`.
+    * `{:custom, {mod, fun}}` — refers to a named function of arity 1.
+      Useful when you want the spec to be `Macro.escape`-friendly (e.g., when
+      building the spec at compile time via a module attribute or macro).
+
+  The function (in either form) must accept a `String.t()` and return
+  `{:ok, term()}` on success or `{:error, String.t()}` on failure.
   """
-  @type custom_type :: {
-          :custom,
-          (raw_value :: String.t() -> {:ok, value :: term()} | {:error, reason :: String.t()})
-        }
+  @type custom_type ::
+          {:custom, (raw_value :: String.t() -> {:ok, value :: term()} | {:error, reason :: String.t()})}
+          | {:custom, {module(), atom()}}
 
   @typedoc """
   The number of arguments that should be consumed.
@@ -395,11 +434,15 @@ defmodule CLIX.Spec do
       {:custom, fun} when is_function(fun, 1) ->
         :ok
 
+      {:custom, {mod, fun}} when is_atom(mod) and is_atom(fun) ->
+        :ok
+
       _ ->
         raise ArgumentError,
               location(cmd_path, name_tag) <>
                 "expected :type to be one of " <>
-                "[:string, :boolean, :integer, :float, {:custom, fun_of_arity_1}], " <>
+                "[:string, :boolean, :integer, :float, {:custom, fun}, " <>
+                "{:custom, {mod, fun}}], " <>
                 "got: #{inspect(type)}"
     end
   end
