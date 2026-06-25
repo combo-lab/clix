@@ -5,6 +5,10 @@ defmodule CLIX do
   Before we begin, let's first talk about the terminology and conventions used
   in CLIX.
 
+  ## How is CLIX pronounced?
+
+  /klɪks/.
+
   ## The flow of CLIX
 
     1. use `CLIX.Spec` to build a spec.
@@ -13,8 +17,10 @@ defmodule CLIX do
 
   ## About arguments
 
-  The arguments is the abbrev of "command line arguments", which is the main
+  The "arguments" is the abbrev of "command line arguments", which is the main
   thing handled by a CLI framework.
+
+  There are two types of them.
 
   ### Positional arguments
 
@@ -31,8 +37,8 @@ defmodule CLIX do
     * POSIX syntax - `-` followed by a single letter indicating an option.
     * GNU-extended syntax - `--` followed by a long name indicating an option.
 
-  > CLIX doesn't plan to support special prefixes, such as `/` or `+`, so we
-  > ignore them.
+  > CLIX doesn't support and has no plan to support special prefixes, such as
+  > `/` or `+`.
 
   In practice, optional arguments are often used to implement options. For
   options, there is a further level of classification:
@@ -42,43 +48,30 @@ defmodule CLIX do
       They are commonly referred to as flags, because they represent boolean states.
 
   > CLIX doesn't explicitly distinguish between flags and options, as a flag is
-  > simply a special type of option.
+  > a special type of option.
 
   #### Option terminator
 
   The option terminator is `--`. When it is used, all the arguments after it are
   considered as positional arguments.
 
-  ### The optionality of arguments
-
-  In CLIX, we think:
-
-    * positional arguments are required by default, but can be made optional.
-    * optional arguments are always optional, and this is unchangeable.
-
-  In other implementations, optional arguments can be made required. Personally,
-  I don't think that's a good design. You can try to say "The optional argument
-  is required", then you might feel it's a bit counterintuitive. That's because
-  the name (optional argument) does not match its description (requried).
-
   ## Conventions
 
   ### Abbreviations
 
-  To make the code or doc more compact, we use some abbreviations to describe
-  positional arguments and optional arguments.
+  To keep code and prose compact, CLIX uses a few abbreviations.
 
-  At the implementation level, which the CLIX's developers should care about:
+  At the parsing level (used internally by `CLIX.Parser`):
 
     * `pos_args` - refers to positional arguments
     * `opt_args` - refers to optional arguments
 
-  At the interface level, which the CLIX's users should care about:
+  At the API level (used in `CLIX.Spec`, which CLIX's users interact with):
 
     * `args` - refers to positional arguments
-    * `opts` - refers to optional arguments
+    * `opts` - refers to options
 
-  And, when you see a standalone "arguments", it means arguments in the general sense.
+  And, a bare "arguments", means arguments in the general sense.
 
   ### The structure of an option
 
