@@ -56,6 +56,13 @@ defmodule CLIX.Spec do
     * `:*` - consume zero or more arguments.
     * `:+` - consume one or more arguments.
 
+  # Which to choose?
+
+  |                 | required | optional |
+  |-----------------|----------|----------|
+  | single value    | `nil`    | `:"?"`   |
+  | multiple values | `:+`     | `:*`     |
+
   """
   @type nargs :: nil | :"?" | :* | :+
 
