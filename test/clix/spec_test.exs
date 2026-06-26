@@ -11,6 +11,37 @@ defmodule CLIX.SpecTest do
                      Spec.new({:example, %{cmds: [setup: %{}, setup: %{}]}})
                    end
     end
+
+    test ":help / :summary / :description / :epilogue must be a string or nil" do
+      for field <- [:help, :summary, :description, :epilogue] do
+        assert_raise ArgumentError,
+                     "under the cmd path [:example] - expected #{inspect(field)} to be a string or nil, got: 42",
+                     fn ->
+                       Spec.new({:example, Map.put(%{}, field, 42)})
+                     end
+      end
+
+      # nil and string are both fine
+      assert {_, _} = Spec.new({:example, %{summary: nil, description: "ok", help: "h", epilogue: "e"}})
+    end
+
+    test "cmd-level string check fires on nested cmds too" do
+      assert_raise ArgumentError,
+                   "under the cmd path [:example, :sub] - expected :description to be a string or nil, got: 99",
+                   fn ->
+                     Spec.new({:example, %{cmds: [sub: %{description: 99}]}})
+                   end
+    end
+
+    test "sub-cmd name must be an atom and sub-cmd spec must be a map" do
+      assert_raise FunctionClauseError, fn ->
+        Spec.new({:example, %{cmds: [{"not_atom", %{}}]}})
+      end
+
+      assert_raise FunctionClauseError, fn ->
+        Spec.new({:example, %{cmds: [sub: "not_a_map"]}})
+      end
+    end
   end
 
   describe "args -" do
@@ -129,6 +160,28 @@ defmodule CLIX.SpecTest do
       # required nargs without :default - fine
       assert {_, _} = Spec.new({:example, %{args: [file: %{nargs: :!}]}})
       assert {_, _} = Spec.new({:example, %{args: [file: %{nargs: :+}]}})
+    end
+
+    test ":help must be a string or nil" do
+      assert_raise ArgumentError,
+                   "arg :file under the cmd path [:example] - expected :help to be a string or nil, got: 7",
+                   fn ->
+                     Spec.new({:example, %{args: [file: %{help: 7}]}})
+                   end
+
+      assert {_, _} = Spec.new({:example, %{args: [file: %{help: "the file"}]}})
+      assert {_, _} = Spec.new({:example, %{args: [file: %{help: nil}]}})
+    end
+
+    test ":value_name must be a string or nil" do
+      assert_raise ArgumentError,
+                   "arg :file under the cmd path [:example] - expected :value_name to be a string or nil, got: 42",
+                   fn ->
+                     Spec.new({:example, %{args: [file: %{value_name: 42}]}})
+                   end
+
+      assert {_, _} = Spec.new({:example, %{args: [file: %{value_name: "FILE"}]}})
+      assert {_, _} = Spec.new({:example, %{args: [file: %{value_name: nil}]}})
     end
 
     test ":default must match :type" do
@@ -272,6 +325,45 @@ defmodule CLIX.SpecTest do
 
       assert {_, _} = Spec.new({:example, %{opts: [name: %{long: "name", required: true}]}})
       assert {_, _} = Spec.new({:example, %{opts: [name: %{long: "name", default: "x"}]}})
+    end
+
+    test ":help must be a string or nil" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :help to be a string or nil, got: 7",
+                   fn ->
+                     Spec.new({:example, %{opts: [mode: %{long: "mode", help: 7}]}})
+                   end
+
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", help: "the mode"}]}})
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", help: nil}]}})
+    end
+
+    test ":value_name must be a string or nil" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :value_name to be a string or nil, got: 42",
+                   fn ->
+                     Spec.new({:example, %{opts: [mode: %{long: "mode", value_name: 42}]}})
+                   end
+
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", value_name: "MODE"}]}})
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", value_name: nil}]}})
+    end
+
+    test ":required must be a boolean" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :required to be a boolean, got: \"yes\"",
+                   fn ->
+                     Spec.new({:example, %{opts: [mode: %{long: "mode", required: "yes"}]}})
+                   end
+
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :required to be a boolean, got: nil",
+                   fn ->
+                     Spec.new({:example, %{opts: [mode: %{long: "mode", required: nil}]}})
+                   end
+
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", required: true}]}})
+      assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode", required: false}]}})
     end
 
     test ":default must match :type" do

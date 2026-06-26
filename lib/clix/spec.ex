@@ -117,23 +117,23 @@ defmodule CLIX.Spec do
 
   @type required_arg_spec ::
           %{
+            optional(:help) => help(),
             optional(:type) => type(),
             optional(:nargs) => :!,
-            optional(:value_name) => value_name(),
-            optional(:help) => help()
+            optional(:value_name) => value_name()
           }
           | %{
+              optional(:help) => help(),
               optional(:type) => type(),
               :nargs => :+,
-              optional(:value_name) => value_name(),
-              optional(:help) => help()
+              optional(:value_name) => value_name()
             }
   @type optional_arg_spec :: %{
+          optional(:help) => help(),
           optional(:type) => type(),
           :nargs => :"?" | :*,
           optional(:default) => any(),
-          optional(:value_name) => value_name(),
-          optional(:help) => help()
+          optional(:value_name) => value_name()
         }
   @typedoc "The parsing spec of a positional argument."
   @type arg_spec :: required_arg_spec() | optional_arg_spec()
@@ -182,7 +182,7 @@ defmodule CLIX.Spec do
     |> fill_cmd_spec()
   end
 
-  defp cast_cmd_pair({cmd_name, cmd_spec}) do
+  defp cast_cmd_pair({cmd_name, cmd_spec}) when is_atom(cmd_name) and is_map(cmd_spec) do
     default_cmd_spec = %{
       help: nil,
       summary: nil,
@@ -196,10 +196,6 @@ defmodule CLIX.Spec do
     cmd_spec =
       default_cmd_spec
       |> Map.merge(cmd_spec)
-      |> put_cmd_help()
-
-    cmd_spec =
-      cmd_spec
       |> Map.update!(:args, fn args -> Enum.map(args, &cast_arg_pair(&1)) end)
       |> Map.update!(:opts, fn opts -> Enum.map(opts, &cast_opt_pair(&1)) end)
       # Intentionally placed at the end, because I want to do breadth-first casting.
@@ -207,9 +203,6 @@ defmodule CLIX.Spec do
 
     {cmd_name, cmd_spec}
   end
-
-  defp put_cmd_help(%{help: nil} = cmd_spec), do: Map.put(cmd_spec, :help, cmd_spec.summary)
-  defp put_cmd_help(cmd_spec), do: cmd_spec
 
   defp cast_arg_pair({arg_name, arg_spec}) when is_atom(arg_name) and is_map(arg_spec) do
     default_arg_spec = %{
@@ -219,21 +212,8 @@ defmodule CLIX.Spec do
       help: nil
     }
 
-    arg_spec =
-      default_arg_spec
-      |> Map.merge(arg_spec)
-      |> put_arg_value_name(arg_name)
-
+    arg_spec = Map.merge(default_arg_spec, arg_spec)
     {arg_name, arg_spec}
-  end
-
-  defp put_arg_value_name(%{value_name: value_name} = arg_spec, _arg_name) when value_name !== nil do
-    arg_spec
-  end
-
-  defp put_arg_value_name(arg_spec, arg_name) do
-    value_name = arg_name |> to_string() |> String.upcase()
-    Map.put(arg_spec, :value_name, value_name)
   end
 
   defp cast_opt_pair({opt_name, opt_spec}) when is_atom(opt_name) and is_map(opt_spec) do
@@ -246,25 +226,16 @@ defmodule CLIX.Spec do
       help: nil
     }
 
-    opt_spec =
-      default_opt_spec
-      |> Map.merge(opt_spec)
-      |> put_opt_value_name(opt_name)
-
+    opt_spec = Map.merge(default_opt_spec, opt_spec)
     {opt_name, opt_spec}
-  end
-
-  defp put_opt_value_name(%{value_name: value_name} = opt_spec, _opt_name) when value_name !== nil do
-    opt_spec
-  end
-
-  defp put_opt_value_name(opt_spec, opt_name) do
-    value_name = opt_name |> to_string() |> String.upcase()
-    Map.put(opt_spec, :value_name, value_name)
   end
 
   defp validate_cmd_pair!({cmd_name, cmd_spec}, cmd_path) do
     inner_cmd_path = [cmd_name | cmd_path]
+
+    for field <- [:help, :summary, :description, :epilogue] do
+      validate_optional_string!(Map.get(cmd_spec, field), field, :cmd, inner_cmd_path)
+    end
 
     validate_unique_names!(cmd_spec.args, :arg, inner_cmd_path)
     validate_unique_names!(cmd_spec.opts, :opt, inner_cmd_path)
@@ -282,7 +253,7 @@ defmodule CLIX.Spec do
     end)
 
     Enum.each(cmd_spec.cmds, fn {sub_cmd_name, sub_cmd_spec} ->
-      validate_cmd_pair!({sub_cmd_name, sub_cmd_spec}, [sub_cmd_name | cmd_path])
+      validate_cmd_pair!({sub_cmd_name, sub_cmd_spec}, inner_cmd_path)
     end)
 
     {cmd_name, cmd_spec}
@@ -349,6 +320,8 @@ defmodule CLIX.Spec do
   defp validate_arg_pair!({arg_name, arg_spec}, cmd_path) do
     %{type: type, nargs: nargs} = arg_spec
 
+    validate_optional_string!(Map.get(arg_spec, :help), :help, {:arg, arg_name}, cmd_path)
+    validate_optional_string!(Map.get(arg_spec, :value_name), :value_name, {:arg, arg_name}, cmd_path)
     validate_type!(type, {:arg, arg_name}, cmd_path)
     validate_nargs!(nargs, arg_name, cmd_path)
 
@@ -381,6 +354,15 @@ defmodule CLIX.Spec do
 
   defp validate_opt_pair!({opt_name, opt_spec}, cmd_path) do
     %{short: short, long: long} = opt_spec
+
+    validate_optional_string!(Map.get(opt_spec, :help), :help, {:opt, opt_name}, cmd_path)
+    validate_optional_string!(Map.get(opt_spec, :value_name), :value_name, {:opt, opt_name}, cmd_path)
+
+    unless is_boolean(opt_spec.required) do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :required to be a boolean, got: #{inspect(opt_spec.required)}"
+    end
 
     if short == nil and long == nil do
       raise ArgumentError,
@@ -472,12 +454,24 @@ defmodule CLIX.Spec do
   # :custom returns user-defined types; can't statically check, so trust the user.
   defp default_matches_type?(_value, {:custom, _}), do: true
 
+  defp location(cmd_path, :cmd) when is_list(cmd_path) do
+    "under the cmd path #{inspect(Enum.reverse(cmd_path))} - "
+  end
+
   defp location(cmd_path, {:arg, arg_name}) when is_list(cmd_path) do
     "arg #{inspect(arg_name)} under the cmd path #{inspect(Enum.reverse(cmd_path))} - "
   end
 
   defp location(cmd_path, {:opt, opt_name}) when is_list(cmd_path) do
     "opt #{inspect(opt_name)} under the cmd path #{inspect(Enum.reverse(cmd_path))} - "
+  end
+
+  defp validate_optional_string!(value, _field, _name_tag, _cmd_path) when is_nil(value) or is_binary(value), do: :ok
+
+  defp validate_optional_string!(value, field, name_tag, cmd_path) do
+    raise ArgumentError,
+          location(cmd_path, name_tag) <>
+            "expected #{inspect(field)} to be a string or nil, got: #{inspect(value)}"
   end
 
   defp validate_type!(type, name_tag, cmd_path) do
@@ -520,15 +514,39 @@ defmodule CLIX.Spec do
   defp fill_cmd_spec({cmd_name, cmd_spec}) do
     cmd_spec =
       cmd_spec
+      |> put_cmd_help()
       |> Map.update!(:args, fn args ->
-        Enum.map(args, fn {arg_name, arg_spec} -> {arg_name, put_arg_default(arg_spec)} end)
+        Enum.map(args, fn {arg_name, arg_spec} ->
+          {arg_name, arg_spec |> put_arg_default() |> put_arg_value_name(arg_name)}
+        end)
       end)
       |> Map.update!(:opts, fn opts ->
-        Enum.map(opts, fn {opt_name, opt_spec} -> {opt_name, put_opt_default(opt_spec)} end)
+        Enum.map(opts, fn {opt_name, opt_spec} ->
+          {opt_name, opt_spec |> put_opt_default() |> put_opt_value_name(opt_name)}
+        end)
       end)
       |> Map.update!(:cmds, fn cmds -> Enum.map(cmds, &fill_cmd_spec(&1)) end)
 
     {cmd_name, cmd_spec}
+  end
+
+  defp put_cmd_help(%{help: nil} = cmd_spec), do: Map.put(cmd_spec, :help, cmd_spec.summary)
+  defp put_cmd_help(cmd_spec), do: cmd_spec
+
+  defp put_arg_value_name(%{value_name: value_name} = arg_spec, _arg_name) when value_name !== nil do
+    arg_spec
+  end
+
+  defp put_arg_value_name(arg_spec, arg_name) do
+    Map.put(arg_spec, :value_name, arg_name |> to_string() |> String.upcase())
+  end
+
+  defp put_opt_value_name(%{value_name: value_name} = opt_spec, _opt_name) when value_name !== nil do
+    opt_spec
+  end
+
+  defp put_opt_value_name(opt_spec, opt_name) do
+    Map.put(opt_spec, :value_name, opt_name |> to_string() |> String.upcase())
   end
 
   defp put_arg_default(%{nargs: :!} = arg_spec), do: arg_spec
