@@ -89,7 +89,7 @@ defmodule CLIX.Feedback do
     -d, --debug       enable debug logging
     -v, --verbose...  specify verbose level
 
-  For more help on how to use CLIX, head to https://hex.pm/packages/clix
+  For more help on how to use CLIX, head to <https://hex.pm/packages/clix>.
   ```
 
   ### sub-command `add`
