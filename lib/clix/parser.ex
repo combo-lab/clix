@@ -391,7 +391,7 @@ defmodule CLIX.Parser do
 
   defp parse_stage1(mode, config, argv) do
     {pos_argv, {opt_args, opt_errors}} = parse_stage1(mode, config, argv, [], {%{}, []})
-    {opt_args, extra_opt_errors} = normalize_opt_args(config, opt_args)
+    {opt_args, extra_opt_errors} = normalize_opt_args(config, opt_args, opt_errors)
     opt_errors = [extra_opt_errors | opt_errors] |> List.flatten() |> Enum.reverse()
     {pos_argv, {opt_args, opt_errors}}
   end
@@ -603,12 +603,19 @@ defmodule CLIX.Parser do
   defp store_opt_arg(opt_args, :append, key, value),
     do: Map.update(opt_args, key, [value], &(&1 ++ [value]))
 
-  defp normalize_opt_args(config, opt_args) do
+  defp normalize_opt_args(config, opt_args, prev_opt_errors) do
     %{opt_specs: opt_specs} = config
+    errored_keys = derive_errored_keys(config, prev_opt_errors)
 
     Enum.reduce(opt_specs, {opt_args, []}, fn {key, opt_spec}, {opt_args, opt_errors} ->
       cond do
         Map.has_key?(opt_args, key) ->
+          {opt_args, opt_errors}
+
+        # Stage 1 already emitted an error for this opt (missing_opt_value /
+        # invalid_opt). Don't fill the default — keeping errors and parsed
+        # values disjoint lets the caller trust `parsed_opts.foo`.
+        MapSet.member?(errored_keys, key) ->
           {opt_args, opt_errors}
 
         opt_spec.required ->
@@ -625,6 +632,30 @@ defmodule CLIX.Parser do
           {Map.put(opt_args, key, opt_spec.default), opt_errors}
       end
     end)
+  end
+
+  defp derive_errored_keys(config, prev_opt_errors) do
+    Enum.reduce(prev_opt_errors, MapSet.new(), fn
+      {:missing_opt_value, %{prefixed_opt_name: name}}, acc -> add_errored_key(acc, config, name)
+      {:invalid_opt, %{prefixed_opt_name: name}}, acc -> add_errored_key(acc, config, name)
+      # :unknown_opt is not associated with any declared opt - nothing to skip.
+      _, acc -> acc
+    end)
+  end
+
+  # Reuses tag_opt/2 so the negation form `--no-X` resolves to the same key as `--X`.
+  defp add_errored_key(acc, config, @long_opt_prefix <> long_name) do
+    case tag_opt(config, {:long, long_name}) do
+      {:ok, _name, %{key: key}} -> MapSet.put(acc, key)
+      :error -> acc
+    end
+  end
+
+  defp add_errored_key(acc, config, @short_opt_prefix <> short_name) do
+    case tag_opt(config, {:short, short_name}) do
+      {:ok, _name, %{key: key}} -> MapSet.put(acc, key)
+      :error -> acc
+    end
   end
 
   defp parse_stage2(config, pos_argv) do
