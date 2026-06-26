@@ -352,12 +352,30 @@ defmodule CLIX.Spec do
     validate_type!(type, {:arg, arg_name}, cmd_path)
     validate_nargs!(nargs, arg_name, cmd_path)
 
-    # At this point :default is present iff the user explicitly set it
-    # (fill_cmd_spec/1 runs after validation).
-    if nargs in [:!, :+] and Map.has_key?(arg_spec, :default) do
+    if Map.has_key?(arg_spec, :default) do
+      validate_arg_default!(arg_spec.default, type, nargs, arg_name, cmd_path)
+    end
+  end
+
+  defp validate_arg_default!(_default, _type, nargs, arg_name, cmd_path) when nargs in [:!, :+] do
+    raise ArgumentError,
+          location(cmd_path, {:arg, arg_name}) <>
+            "expected :default not to be set when :nargs is #{inspect(nargs)}"
+  end
+
+  defp validate_arg_default!(default, type, :"?", arg_name, cmd_path) do
+    if not default_matches_type?(default, type) do
       raise ArgumentError,
             location(cmd_path, {:arg, arg_name}) <>
-              "expected :default not to be set when :nargs is #{inspect(nargs)}"
+              "expected :default to match :type #{inspect(type)}, got: #{inspect(default)}"
+    end
+  end
+
+  defp validate_arg_default!(default, type, :*, arg_name, cmd_path) do
+    if not (is_list(default) and Enum.all?(default, &default_matches_type?(&1, type))) do
+      raise ArgumentError,
+            location(cmd_path, {:arg, arg_name}) <>
+              "expected :default to be a list of :type #{inspect(type)}, got: #{inspect(default)}"
     end
   end
 
@@ -411,12 +429,48 @@ defmodule CLIX.Spec do
               "expected :type to be :boolean when :action is :count, got: #{inspect(type)}"
     end
 
-    if opt_spec.required and Map.has_key?(opt_spec, :default) do
-      raise ArgumentError,
-            location(cmd_path, {:opt, opt_name}) <>
-              "expected :default not to be set when :required is true"
+    if Map.has_key?(opt_spec, :default) do
+      validate_opt_default!(opt_spec.default, type, action, opt_spec.required, opt_name, cmd_path)
     end
   end
+
+  defp validate_opt_default!(_default, _type, _action, true = _required, opt_name, cmd_path) do
+    raise ArgumentError,
+          location(cmd_path, {:opt, opt_name}) <>
+            "expected :default not to be set when :required is true"
+  end
+
+  defp validate_opt_default!(default, type, :set, false, opt_name, cmd_path) do
+    if not default_matches_type?(default, type) do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :default to match :type #{inspect(type)}, got: #{inspect(default)}"
+    end
+  end
+
+  defp validate_opt_default!(default, _type, :count, false, opt_name, cmd_path) do
+    if not is_integer(default) do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :default to be an integer when :action is :count, got: #{inspect(default)}"
+    end
+  end
+
+  defp validate_opt_default!(default, type, :append, false, opt_name, cmd_path) do
+    if not (is_list(default) and Enum.all?(default, &default_matches_type?(&1, type))) do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :default to be a list of :type #{inspect(type)}, got: #{inspect(default)}"
+    end
+  end
+
+  defp default_matches_type?(nil, _type), do: true
+  defp default_matches_type?(value, :string), do: is_binary(value)
+  defp default_matches_type?(value, :boolean), do: is_boolean(value)
+  defp default_matches_type?(value, :integer), do: is_integer(value)
+  defp default_matches_type?(value, :float), do: is_float(value)
+  # :custom returns user-defined types; can't statically check, so trust the user.
+  defp default_matches_type?(_value, {:custom, _}), do: true
 
   defp location(cmd_path, {:arg, arg_name}) when is_list(cmd_path) do
     "arg #{inspect(arg_name)} under the cmd path #{inspect(Enum.reverse(cmd_path))} - "

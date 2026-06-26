@@ -130,6 +130,40 @@ defmodule CLIX.SpecTest do
       assert {_, _} = Spec.new({:example, %{args: [file: %{nargs: :!}]}})
       assert {_, _} = Spec.new({:example, %{args: [file: %{nargs: :+}]}})
     end
+
+    test ":default must match :type" do
+      # nargs :? — single value mismatch
+      assert_raise ArgumentError,
+                   "arg :n under the cmd path [:example] - expected :default to match :type :integer, got: \"x\"",
+                   fn ->
+                     Spec.new({:example, %{args: [n: %{type: :integer, nargs: :"?", default: "x"}]}})
+                   end
+
+      # nargs :* — list shape required
+      assert_raise ArgumentError,
+                   "arg :items under the cmd path [:example] - expected :default to be a list of :type :string, got: \"x\"",
+                   fn ->
+                     Spec.new({:example, %{args: [items: %{nargs: :*, default: "x"}]}})
+                   end
+
+      # nargs :* — list element mismatch
+      assert_raise ArgumentError,
+                   "arg :items under the cmd path [:example] - expected :default to be a list of :type :integer, got: [1, \"two\"]",
+                   fn ->
+                     Spec.new({:example, %{args: [items: %{type: :integer, nargs: :*, default: [1, "two"]}]}})
+                   end
+
+      # nil is always allowed
+      assert {_, _} = Spec.new({:example, %{args: [n: %{type: :integer, nargs: :"?", default: nil}]}})
+
+      # matching combos
+      assert {_, _} = Spec.new({:example, %{args: [n: %{type: :integer, nargs: :"?", default: 0}]}})
+      assert {_, _} = Spec.new({:example, %{args: [items: %{type: :integer, nargs: :*, default: [1, 2]}]}})
+
+      # :custom is opaque - any default allowed
+      assert {_, _} =
+               Spec.new({:example, %{args: [x: %{type: {:custom, fn s -> {:ok, s} end}, nargs: :"?", default: :anything}]}})
+    end
   end
 
   describe "opts -" do
@@ -238,6 +272,43 @@ defmodule CLIX.SpecTest do
 
       assert {_, _} = Spec.new({:example, %{opts: [name: %{long: "name", required: true}]}})
       assert {_, _} = Spec.new({:example, %{opts: [name: %{long: "name", default: "x"}]}})
+    end
+
+    test ":default must match :type" do
+      # action :set — single value mismatch
+      assert_raise ArgumentError,
+                   "opt :n under the cmd path [:example] - expected :default to match :type :integer, got: \"x\"",
+                   fn ->
+                     Spec.new({:example, %{opts: [n: %{short: "n", type: :integer, default: "x"}]}})
+                   end
+
+      # action :count — must be integer (type is :boolean by the :count rule)
+      assert_raise ArgumentError,
+                   "opt :v under the cmd path [:example] - expected :default to be an integer when :action is :count, got: \"x\"",
+                   fn ->
+                     Spec.new({:example, %{opts: [v: %{short: "v", type: :boolean, action: :count, default: "x"}]}})
+                   end
+
+      # action :append — must be a list of type
+      assert_raise ArgumentError,
+                   "opt :t under the cmd path [:example] - expected :default to be a list of :type :string, got: \"x\"",
+                   fn ->
+                     Spec.new({:example, %{opts: [t: %{short: "t", action: :append, default: "x"}]}})
+                   end
+
+      assert_raise ArgumentError,
+                   "opt :t under the cmd path [:example] - expected :default to be a list of :type :integer, got: [1, \"two\"]",
+                   fn ->
+                     Spec.new({:example, %{opts: [t: %{short: "t", type: :integer, action: :append, default: [1, "two"]}]}})
+                   end
+
+      # matching combos
+      assert {_, _} = Spec.new({:example, %{opts: [n: %{short: "n", type: :integer, default: 7}]}})
+      assert {_, _} = Spec.new({:example, %{opts: [v: %{short: "v", type: :boolean, action: :count, default: 3}]}})
+      assert {_, _} = Spec.new({:example, %{opts: [t: %{short: "t", action: :append, default: ["a", "b"]}]}})
+
+      # nil is always allowed
+      assert {_, _} = Spec.new({:example, %{opts: [n: %{short: "n", type: :integer, default: nil}]}})
     end
 
     test "no duplicate opt names" do
