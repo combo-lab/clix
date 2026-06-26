@@ -42,10 +42,7 @@ defmodule CLIX.ParserTest do
       spec = new_spec(%{args: [arg: %{type: :integer}]})
       assert Parser.parse(spec, ["0"]) == {[], %{arg: 0}, %{}, []}
       assert Parser.parse(spec, ["1"]) == {[], %{arg: 1}, %{}, []}
-
-      assert Parser.parse(spec, ["-1"]) ==
-               {[], %{}, %{},
-                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :integer, value: nil, nargs: :!, value_name: "ARG"}}]}
+      assert Parser.parse(spec, ["-1"]) == {[], %{arg: -1}, %{}, []}
 
       assert Parser.parse(spec, ["other"]) ==
                {[], %{}, %{},
@@ -59,10 +56,7 @@ defmodule CLIX.ParserTest do
       spec = new_spec(%{args: [arg: %{type: :float}]})
       assert Parser.parse(spec, ["0.0"]) == {[], %{arg: 0}, %{}, []}
       assert Parser.parse(spec, ["1.1"]) == {[], %{arg: 1.1}, %{}, []}
-
-      assert Parser.parse(spec, ["-1.1"]) ==
-               {[], %{}, %{},
-                [{:unknown_opt, "-1"}, {:missing_arg, %{message: nil, type: :float, value: nil, nargs: :!, value_name: "ARG"}}]}
+      assert Parser.parse(spec, ["-1.1"]) == {[], %{arg: -1.1}, %{}, []}
 
       assert Parser.parse(spec, ["other"]) ==
                {[], %{}, %{},
@@ -99,7 +93,7 @@ defmodule CLIX.ParserTest do
                 ]}
     end
 
-    test ":custom with {module, function} (Macro.escape-friendly)" do
+    test ":custom with {mod, fun}" do
       spec = new_spec(%{args: [arg: %{type: {:custom, {__MODULE__, :parse_date}}}]})
 
       assert Parser.parse(spec, ["2015-01-23"]) == {[], %{arg: ~D[2015-01-23]}, %{}, []}
@@ -114,7 +108,7 @@ defmodule CLIX.ParserTest do
   end
 
   describe "args - :nargs attr" do
-    test "nil" do
+    test ":!" do
       spec = new_spec(%{args: [arg: %{nargs: :!}]})
 
       assert Parser.parse(spec, []) ==
@@ -124,7 +118,7 @@ defmodule CLIX.ParserTest do
       assert Parser.parse(spec, ["a", "b"]) == {[], %{arg: "a"}, %{}, [{:unknown_arg, "b"}]}
     end
 
-    test inspect(:"?") do
+    test ":\"?\"" do
       spec = new_spec(%{args: [arg: %{nargs: :"?"}]})
 
       assert Parser.parse(spec, []) == {[], %{arg: nil}, %{}, []}
@@ -149,35 +143,32 @@ defmodule CLIX.ParserTest do
                   {:missing_arg, %{message: nil, type: :string, value: nil, nargs: :+, value_name: "ARG"}}
                 ]}
 
+      assert Parser.parse(spec, ["a"]) == {[], %{arg: ["a"]}, %{}, []}
       assert Parser.parse(spec, ["a", "b"]) == {[], %{arg: ["a", "b"]}, %{}, []}
     end
   end
 
   describe "args - :default attr" do
-    test "for nargs #{inspect(nil)}" do
+    test "for nargs - #{inspect(:!)}" do
       # no test for it, because it means the argument is required
     end
 
     test "for :nargs - #{inspect(:"?")}" do
-      spec = new_spec(%{args: [arg: %{nargs: :"?", default: "x"}]})
-      assert Parser.parse(spec, []) == {[], %{arg: "x"}, %{}, []}
-      assert Parser.parse(spec, ["a"]) == {[], %{arg: "a"}, %{}, []}
-    end
-
-    test "for :nargs - #{inspect(:*)}" do
-      spec = new_spec(%{args: [arg: %{nargs: :*, default: ["x"]}]})
-      assert Parser.parse(spec, []) == {[], %{arg: ["x"]}, %{}, []}
-      assert Parser.parse(spec, ["a"]) == {[], %{arg: ["a"]}, %{}, []}
+      spec = new_spec(%{args: [arg: %{nargs: :"?", default: "a"}]})
+      assert Parser.parse(spec, []) == {[], %{arg: "a"}, %{}, []}
+      assert Parser.parse(spec, ["b"]) == {[], %{arg: "b"}, %{}, []}
     end
 
     test "for :nargs - #{inspect(:+)}" do
       # no test for it, because it means the argument is required
     end
 
-    test "isn't checked to match the :type attr" do
-      spec = new_spec(%{args: [arg: %{type: :boolean, nargs: :"?", default: "A"}]})
-      assert Parser.parse(spec, []) == {[], %{arg: "A"}, %{}, []}
+    test "for :nargs - #{inspect(:*)}" do
+      spec = new_spec(%{args: [arg: %{nargs: :*, default: ["a"]}]})
+      assert Parser.parse(spec, []) == {[], %{arg: ["a"]}, %{}, []}
+      assert Parser.parse(spec, ["b"]) == {[], %{arg: ["b"]}, %{}, []}
     end
+
   end
 
   describe "args - errors" do
@@ -314,31 +305,19 @@ defmodule CLIX.ParserTest do
     test "there's no negative number like option" do
       spec = new_spec(%{args: [arg: %{nargs: :*}], opts: [opt: %{short: "o"}]})
       assert Parser.parse(spec, ["-o", "-1"]) == {[], %{arg: []}, %{opt: "-1"}, []}
-      assert Parser.parse(spec, ["-o", "-1", "-1"]) == {[], %{arg: []}, %{opt: "-1"}, [{:unknown_opt, "-1"}]}
+      assert Parser.parse(spec, ["-o", "-1", "-1"]) == {[], %{arg: ["-1"]}, %{opt: "-1"}, []}
       assert Parser.parse(spec, ["-o", "-1.1"]) == {[], %{arg: []}, %{opt: "-1.1"}, []}
-      assert Parser.parse(spec, ["-o", "-1.1", "-1.1"]) == {[], %{arg: []}, %{opt: "-1.1"}, [{:unknown_opt, "-1"}]}
+      assert Parser.parse(spec, ["-o", "-1.1", "-1.1"]) == {[], %{arg: ["-1.1"]}, %{opt: "-1.1"}, []}
     end
 
-    test "there's negative number like flag" do
-      spec = new_spec(%{args: [arg: %{nargs: :*}], opts: [opt: %{short: "1", type: :boolean}]})
-      assert Parser.parse(spec, ["-5"]) == {[], %{arg: []}, %{opt: false}, [{:unknown_opt, "-5"}]}
-      assert Parser.parse(spec, ["-1", "X"]) == {[], %{arg: ["X"]}, %{opt: true}, []}
-      assert Parser.parse(spec, ["-1", "X", "-1"]) == {[], %{arg: ["X"]}, %{opt: true}, []}
-      assert Parser.parse(spec, ["-1", "-1"]) == {[], %{arg: []}, %{opt: true}, []}
-    end
+    test "negative number is treated as positional when no digit short exists" do
+      spec = new_spec(%{args: [n: %{type: :integer}]})
+      assert Parser.parse(spec, ["-1"]) == {[], %{n: -1}, %{}, []}
+      assert Parser.parse(spec, ["-100"]) == {[], %{n: -100}, %{}, []}
 
-    test "there's negative number like option" do
-      spec = new_spec(%{args: [arg: %{nargs: :*}], opts: [opt: %{short: "1"}]})
-      assert Parser.parse(spec, ["-5"]) == {[], %{arg: []}, %{opt: nil}, [{:unknown_opt, "-5"}]}
-      assert Parser.parse(spec, ["-1", "X"]) == {[], %{arg: []}, %{opt: "X"}, []}
-
-      assert Parser.parse(spec, ["-1", "X", "-1"]) ==
-               {[], %{arg: []}, %{opt: "X"},
-                [
-                  {:missing_opt_value, %{message: nil, type: :string, value: nil, action: :set, value_name: "OPT", prefixed_opt_name: "-1"}}
-                ]}
-
-      assert Parser.parse(spec, ["-1", "-1"]) == {[], %{arg: []}, %{opt: "-1"}, []}
+      spec = new_spec(%{args: [n: %{type: :float}]})
+      assert Parser.parse(spec, ["-1.5"]) == {[], %{n: -1.5}, %{}, []}
+      assert Parser.parse(spec, ["-0.001"]) == {[], %{n: -0.001}, %{}, []}
     end
   end
 
@@ -745,14 +724,14 @@ defmodule CLIX.ParserTest do
         ],
         opts: [
           debug: %{short: "d", type: :boolean},
-          single: %{short: "1", type: :boolean}
+          single: %{short: "s", type: :boolean}
         ]
       })
 
     assert Parser.parse(spec, ["a1", "a2", "-d"]) == {[], %{all: ["a1", "a2"]}, %{debug: true, single: false}, []}
     assert Parser.parse(spec, ["a1", "a2", "--", "-d"]) == {[], %{all: ["a1", "a2", "-d"]}, %{debug: false, single: false}, []}
-    assert Parser.parse(spec, ["a1", "a2", "-1"]) == {[], %{all: ["a1", "a2"]}, %{debug: false, single: true}, []}
-    assert Parser.parse(spec, ["a1", "a2", "--", "-1"]) == {[], %{all: ["a1", "a2", "-1"]}, %{debug: false, single: false}, []}
+    assert Parser.parse(spec, ["a1", "a2", "-s"]) == {[], %{all: ["a1", "a2"]}, %{debug: false, single: true}, []}
+    assert Parser.parse(spec, ["a1", "a2", "--", "-s"]) == {[], %{all: ["a1", "a2", "-s"]}, %{debug: false, single: false}, []}
   end
 
   defp new_spec(cmd_spec), do: Spec.new({:example, cmd_spec})

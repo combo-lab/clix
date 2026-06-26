@@ -406,6 +406,18 @@ defmodule CLIX.Parser do
     parse_stage1(mode, config, [], Enum.reverse(rest_argv, pos_argv), {opt_args, opt_errors})
   end
 
+  # Handles -1, -1.5, -123, etc, which are parsed as positional values.
+  # Digit-starting short opts are raised when building spec, so this safe unconditionally.
+  defp parse_stage1(:intermixed = mode, config, [<<"-", c::utf8, _::binary>> = pos_arg | rest_argv], pos_argv, acc)
+       when c in ?0..?9 do
+    parse_stage1(mode, config, rest_argv, [pos_arg | pos_argv], acc)
+  end
+
+  defp parse_stage1(:strict = mode, config, [<<"-", c::utf8, _::binary>> = arg | rest_argv], pos_argv, acc)
+       when c in ?0..?9 do
+    parse_stage1(mode, config, [], Enum.reverse([arg | rest_argv], pos_argv), acc)
+  end
+
   # Handles --flag, --option <value>, --option=<value>
   defp parse_stage1(mode, config, [@long_opt_prefix <> opt_str | rest_argv], pos_argv, {opt_args, opt_errors})
        when opt_str != "" do
