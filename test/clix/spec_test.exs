@@ -161,10 +161,10 @@ defmodule CLIX.SpecTest do
       assert {_, _} = Spec.new({:example, %{opts: [mode: %{long: "mode"}]}})
     end
 
-    test ":short cannot be '-', '=', or whitespace" do
-      for s <- ["-", "=", " ", "\t"] do
+    test ":short cannot be a digit, '-', '=', or whitespace" do
+      for s <- ["-", "=", " ", "\t", "0", "5", "9"] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :short to not be \"-\", \"=\", or whitespace, got: #{inspect(s)}",
+                     "opt :mode under the cmd path [:example] - expected :short to not be a digit, \"-\", \"=\", or whitespace, got: #{inspect(s)}",
                      fn ->
                        Spec.new({:example, %{opts: [mode: %{short: s}]}})
                      end

@@ -382,10 +382,10 @@ defmodule CLIX.Spec do
               "expected :long to be a multi-chars string, got: #{inspect(long)}"
     end
 
-    if short && short in ["-", "=", " ", "\t"] do
+    if short && short =~ ~r/^[\d\-=\s]$/ do
       raise ArgumentError,
             location(cmd_path, {:opt, opt_name}) <>
-              "expected :short to not be \"-\", \"=\", or whitespace, got: #{inspect(short)}"
+              "expected :short to not be a digit, \"-\", \"=\", or whitespace, got: #{inspect(short)}"
     end
 
     if long && String.starts_with?(long, "-") do
