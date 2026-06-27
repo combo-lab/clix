@@ -75,13 +75,19 @@ defmodule CLIX.SpecNG do
   @doc """
   Builds a spec from raw data.
   """
-  # TODO: replace term() with CLIX.Spec.Cmd.t()
-  @spec new!(raw :: {cmd_name(), cmd_spec()}) :: term()
+  # TODO: replace returned term() with CLIX.Spec.Cmd.t()
+  @spec new!(input :: term()) :: term()
   def new!({cmd_name, cmd_spec}) do
     cmd_path = []
 
     {cmd_name, cmd_spec}
     |> cf_cmd_pair!(cmd_path)
+  end
+
+  def new!(input) do
+    raise ArgumentError,
+          location([], :cmd) <>
+            "expected a {cmd_name, cmd_spec} tuple, got: #{inspect(input)}"
   end
 
   ## Check the format of spec
