@@ -13,7 +13,7 @@ defmodule CLIX do
 
     1. use `CLIX.Spec` to build a spec.
     2. use `CLIX.Parser` to parse argv with the built spec.
-    3. use `CLIX.Feedback` to generate user-faced feedbacks with the built spec.
+    3. use `CLIX.Feedback` to generate user-faced feedbacks.
 
   ## About arguments
 
