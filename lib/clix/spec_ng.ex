@@ -1,4 +1,30 @@
 defmodule CLIX.SpecNG do
+  @moduledoc """
+  The spec builder.
+
+  A spec is the basis for parsing, feedback generation, etc.
+
+  ## Building at compile time
+
+  `new!/1` checks the format and validates the semantics of input eagerly, then
+  returns a finalized spec. For the cases where the spec is fixed, you can pay
+  the cost once at compile time by assigning the result to a module attribute:
+
+    defmodule MyCLI do
+      @cli_spec CLIX.Spec.new!({:my_cli,
+                 %{
+                   # ...
+                 }})
+    end
+
+  Elixir evaluates the right-hand side of `@cli_spec` when the module is
+  compiled and inlines the resulting spec wherever `@cli_spec` is referenced.
+
+  An invalid spec will fail `mix compile` with the same `ArgumentError` you'd
+  see at runtime.
+
+  """
+
   @type cmd_name :: atom()
   @type cmd_spec :: %{
           optional(:help) => help(),

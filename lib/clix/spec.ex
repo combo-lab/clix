@@ -1,38 +1,5 @@
 defmodule CLIX.Spec do
-  @moduledoc """
-  The spec builder.
-
-  A spec is the basis for parsing, feedback generation, etc.
-
-  ## Building at compile time
-
-  `new/1` performs casting and validation eagerly, then returns a finalized
-  spec. For CLI apps whose spec is fixed, you can pay this cost **once at
-  compile time** by assigning the result to a module attribute:
-
-      defmodule MyCLI do
-        @cli_spec CLIX.Spec.new(
-                    {:my_cli,
-                     %{
-                       opts: [verbose: %{long: "verbose", type: :boolean}]
-                     }}
-                  )
-
-        def main(argv) do
-          CLIX.Parser.parse(@cli_spec, argv)
-        end
-      end
-
-  Elixir evaluates the right-hand side of `@cli_spec` when the module is
-  compiled and inlines the resulting spec wherever `@cli_spec` is referenced.
-  An invalid spec will fail `mix compile` with the same `ArgumentError` you'd
-  see at runtime — but **at runtime, no per-call work is repeated**.
-
-  If your spec uses `:custom` types, prefer the `{:custom, {mod, fun}}` form
-  over an inline anonymous function: the named-function form is pure data
-  (atoms + tuples), so it survives `Macro.escape/1` cleanly and works in any
-  compile-time context (module attributes, custom macros, etc.).
-  """
+  @moduledoc false
 
   @typedoc "The spec."
   @type t :: {cmd_name(), cmd_spec()}
@@ -182,7 +149,7 @@ defmodule CLIX.Spec do
     |> fill_cmd_spec()
   end
 
-  defp cast_cmd_pair({cmd_name, cmd_spec}) when is_atom(cmd_name) and is_map(cmd_spec) do
+  defp cast_cmd_pair({cmd_name, cmd_spec}) do
     default_cmd_spec = %{
       help: nil,
       summary: nil,
@@ -530,21 +497,26 @@ defmodule CLIX.Spec do
     {cmd_name, cmd_spec}
   end
 
+  # DONE
   defp put_cmd_help(%{help: nil} = cmd_spec), do: Map.put(cmd_spec, :help, cmd_spec.summary)
   defp put_cmd_help(cmd_spec), do: cmd_spec
 
+  # DONE
   defp put_arg_value_name(%{value_name: value_name} = arg_spec, _arg_name) when value_name !== nil do
     arg_spec
   end
 
+  # DONE
   defp put_arg_value_name(arg_spec, arg_name) do
     Map.put(arg_spec, :value_name, arg_name |> to_string() |> String.upcase())
   end
 
+  # DONE
   defp put_opt_value_name(%{value_name: value_name} = opt_spec, _opt_name) when value_name !== nil do
     opt_spec
   end
 
+  # DONE
   defp put_opt_value_name(opt_spec, opt_name) do
     Map.put(opt_spec, :value_name, opt_name |> to_string() |> String.upcase())
   end
