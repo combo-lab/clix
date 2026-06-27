@@ -240,7 +240,7 @@ defmodule CLIX.SpecNG do
             "expected :default_value to be a string or nil, got: #{inspect(value)}"
   end
 
-  defp cf_arg_spec!({field, value}, arg_name, cmd_path) do
+  defp cf_arg_spec!({field, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
             "unknown field #{inspect(field)} with value #{inspect(value)}"
