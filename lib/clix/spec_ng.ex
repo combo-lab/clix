@@ -10,12 +10,12 @@ defmodule CLIX.SpecNG do
   returns a finalized spec. For the cases where the spec is fixed, you can pay
   the cost once at compile time by assigning the result to a module attribute:
 
-    defmodule MyCLI do
-      @cli_spec CLIX.Spec.new!({:my_cli,
-                 %{
-                   # ...
-                 }})
-    end
+      defmodule MyCLI do
+        @cli_spec CLIX.Spec.new!({:my_cli,
+                   %{
+                     # ...
+                   }})
+      end
 
   Elixir evaluates the right-hand side of `@cli_spec` when the module is
   compiled and inlines the resulting spec wherever `@cli_spec` is referenced.
