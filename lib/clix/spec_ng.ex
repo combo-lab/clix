@@ -14,7 +14,7 @@ defmodule CLIX.SpecNG do
           optional(:num_args) => num_args(),
           optional(:value_name) => value_name(),
           optional(:value_parser) => value_parser(),
-          optional(:required) => boolean(),
+          optional(:required) => required(),
           optional(:default_value) => default_value()
         }
 
@@ -27,21 +27,24 @@ defmodule CLIX.SpecNG do
           optional(:num_args) => num_args(),
           optional(:value_name) => value_name(),
           optional(:value_parser) => value_parser(),
-          optional(:required) => boolean(),
+          optional(:required) => required(),
           optional(:default_value) => default_value()
         }
 
   @type help :: String.t() | nil
-  @type value_name :: String.t() | nil
-  @type value_parser :: {mod :: module(), args :: list()}
-  @type default_value :: String.t() | nil
+
   @type short :: String.t() | nil
   @type long :: String.t() | nil
+
   @type arg_action :: :set | :append
   @type opt_action :: :set | :append | :set_true | :set_false | :count
-  @type num_args ::
-          non_neg_integer()
-          | {non_neg_integer(), non_neg_integer() | :infinity}
+
+  @type num_args :: {non_neg_integer(), non_neg_integer() | :infinity} | non_neg_integer()
+
+  @type value_name :: String.t() | nil
+  @type value_parser :: {mod :: module(), args :: list()}
+  @type required :: boolean()
+  @type default_value :: String.t() | nil
 
   @doc """
   Builds a spec from raw data.
