@@ -1,4 +1,4 @@
-defmodule CLIX.SpecNGTest do
+defmodule CLIX.SpecNG.CheckFormatTest do
   use ExUnit.Case, async: true
 
   alias CLIX.SpecNG
