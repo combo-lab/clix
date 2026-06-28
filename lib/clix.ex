@@ -1,59 +1,71 @@
 defmodule CLIX do
   @moduledoc """
-  A utility-first, composable CLI framework.
+  CLIX (/klɪks/) - A utility-first, composable CLI framework.
 
   Before we begin, let's first talk about the terminology and conventions used
   in CLIX.
 
-  ## How is CLIX pronounced?
+  ## Terminology
 
-  /klɪks/.
+  ### Arguments
 
-  ## The flow of CLIX
+  The command line is composed of **arguments** — the raw tokens passed to the
+  program.
 
-    1. use `CLIX.Spec` to build a spec.
-    2. use `CLIX.Parser` to parse argv with the built spec.
-    3. use `CLIX.Feedback` to generate user-faced feedbacks.
+  CLIX classifies them into two kinds:
 
-  ## About arguments
+    * positional arguments
+    * named arguments
 
-  The "arguments" is the abbrev of "command line arguments", which is the main
-  thing handled by a CLI framework.
+  #### Positional arguments
 
-  There are two types of them.
+  Positional arguments are identified by their position in the command line,
+  not by a prefix.
 
-  ### Positional arguments
+  For example, in `cp src.txt dest.txt`, both `src.txt` and `dest.txt` are
+  positional arguments.
 
-  In general, positional arguments are the ones which are not prefixed with
-  `-` or `--`.
+  #### Named arguments
 
-  > Negative number(like `-3`, `-3.14`) is a special case, but CLIX's parser
-  > can handle it properly.
+  Named arguments are identified by a name prefixed with `-` or `--`,
+  not by their position.
 
-  ### Optional arguments
+  For example, in `docker run --publish 80:80 nginx`, `--publish` is a named
+  argument, and `80:80` is the value consumed by the named argument, while
+  `run` and `nginx` are positional arguments.
 
-  In general, optional arguments are the ones prefixed with `-` or `--`:
+  Two syntaxes are supported:
 
-    * POSIX syntax - `-` followed by a single letter indicating an option.
-    * GNU-extended syntax - `--` followed by a long name indicating an option.
+    * short syntax (POSIX syntax) — a `-` followed by one letter, e.g. `-o`.
+    * long syntax (GNU-extended syntax) — a `--` followed by a name, e.g. `--output`.
 
-  > CLIX doesn't support and has no plan to support special prefixes, such as
+  > CLIX doesn't support and has no plan to support other prefixes, such as
   > `/` or `+`.
 
-  In practice, optional arguments are often used to implement options. For
-  options, there is a further level of classification:
+  In practice, named arguments are often used to implement options. Options are
+  further classified into two kinds based on whether they consume the value
+  immediately following them:
 
-    * options which require subsequent arguments, such as `-o value` or `--option value`.
-    * options which don't require subsequent arguments, such as `-o` or `--option`.
-      They are commonly referred to as flags, because they represent boolean states.
+    * options that consume values, such as `-c FILE` or `--config FILE`.
+    * options that consume no value, such as `-v` or `--verbose`.
+      They are commonly called flags.
 
-  > CLIX doesn't explicitly distinguish between flags and options, as a flag is
-  > a special type of option.
+  > CLIX treats flags as a special kind of options, without drawing a clear
+  > distinction between the two.
 
-  #### Option terminator
+  ### args and opts
 
-  The option terminator is `--`. When it is used, all the arguments after it are
-  considered as positional arguments.
+  The concepts above describe how arguments are identified on the command line.
+
+  When using CLIX, we work with two abstractions:
+
+    * `args` - positional arguments, used as-is.
+    * `opts` - options, built on top of named arguments.
+
+  > This mapping exists because named arguments are the mechanism, while options
+  > are the intent — you don't think "I need a named argument", you think
+  > "I need an option", and named arguments are how that option gets parsed on
+  > the command line.
 
   ## Conventions
 
@@ -61,28 +73,52 @@ defmodule CLIX do
 
   To keep code and prose compact, CLIX uses a few abbreviations.
 
-  At the parsing level (used internally by `CLIX.Parser`):
-
-    * `pos_args` - refers to positional arguments
-    * `opt_args` - refers to optional arguments
-
   At the API level (used in `CLIX.Spec`, which CLIX's users interact with):
 
     * `args` - refers to positional arguments
     * `opts` - refers to options
 
-  And, a bare "arguments", means arguments in the general sense.
+  At the parsing level (used in `CLIX.Parser`, which the maintainers interact with):
+
+    * `pos_args` - collects arguments for positional arguments.
+    * `opt_args` - collects arguments for options.
+
+  A bare "arguments" (without qualifier) refers to arguments in the general sense.
 
   ### The structure of an option
 
-  |                    | option prefix | option string    | option name | option value |
-  | ------------------ | ------------- | ---------------- | ----------- | ------------ |
-  | `-o <value>`       | `-`           | `o`              | `o`         | `<value>`    |
-  | `-o<value>`        | `-`           | `o<value>`       | `o`         | `<value>`    |
-  | `--option <value>` | `--`          | `option`         | `option`    | `<value>`    |
-  | `--option=<value>` | `--`          | `option=<value>` | `option`    | `<value>`    |
+  |                 | option prefix | option string | option name | option value |
+  | --------------- | ------------- | ------------- | ----------- | ------------ |
+  | `-k <value>`    | `-`           | `k`           | `k`         | `<value>`    |
+  | `-k<value>`     | `-`           | `k<value>`    | `k`         | `<value>`    |
+  | `--key <value>` | `--`          | `key`         | `key`       | `<value>`    |
+  | `--key=<value>` | `--`          | `key=<value>` | `key`       | `<value>`    |
 
   > This is a convention used in CLIX, not a standard widely accepted.
 
+  ## Usage
+
+  ### The flow of CLIX
+
+    1. use `CLIX.Spec` to build a spec.
+    2. use `CLIX.Parser` to parse argv with the built spec.
+    3. use `CLIX.Feedback` to generate user-faced feedbacks.
+
+  ## Features
+
+  ### Option terminator
+
+  When the option terminator (`--`) is used, all the arguments after it are
+  parsed as positional arguments.
+
+  ## Limitations
+
+  ### Don't support options like `-1`.
+
+  Negative numbers (like `-1`, `-3.14`) are easily confused with options when
+  used as arguments.
+
+  Given that modern CLIs rarely use numbers as option names, CLIX chooses not
+  to support numbers as option names, in order to reduce complexity.
   """
 end
