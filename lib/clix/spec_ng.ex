@@ -212,6 +212,7 @@ defmodule CLIX.SpecNG do
     |> wrap_and_merge_cmd_pair()
     |> cs_cmd_pair!(cmd_path)
     |> unwrap_pair()
+    |> normalize_cmd_pair()
   end
 
   def new!(input) do
@@ -634,10 +635,6 @@ defmodule CLIX.SpecNG do
     {opt_name, opt_spec}
   end
 
-  defp wrap(tag, data) when is_map(data) do
-    Map.new(data, fn {k, v} -> {k, {tag, v}} end)
-  end
-
   ## Checking the semantics of data
   # cs_ is the short of check_semantics_.
 
@@ -661,6 +658,12 @@ defmodule CLIX.SpecNG do
   end
 
   defp unwrap_inner(v), do: v
+
+  ## Normalizing data
+
+  defp normalize_cmd_pair({cmd_name, cmd_pair}) do
+    {cmd_name, cmd_pair}
+  end
 
   # defp fill_cmd_pair({cmd_name, cmd_spec}) do
   #   cmd_spec =
@@ -718,4 +721,11 @@ defmodule CLIX.SpecNG do
   defp location(cmd_path, {:opt, opt_name}) when is_list(cmd_path) do
     "opt #{inspect(opt_name)} under the cmd path #{inspect(Enum.reverse(cmd_path))} - "
   end
+
+  defp wrap(tag, map) when is_map(map) and tag in [:auto, :user] do
+    Map.new(map, fn {k, v} -> {k, {tag, v}} end)
+  end
+
+  defp unwrap_tag({:auto, v}), do: v
+  defp unwrap_tag({:user, v}), do: v
 end
