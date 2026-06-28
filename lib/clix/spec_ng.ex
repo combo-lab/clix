@@ -231,8 +231,9 @@ defmodule CLIX.SpecNG do
     else
       raise ArgumentError,
             location(cmd_path, {:arg, arg_name}) <>
-              "expected :num_args to be a positive integer, or a {min, max} tuple where " <>
-              "min >= 0 and max >= 1 or :infinity, got: #{inspect(value)}"
+              "expected :num_args to be a positive integer or " <>
+              "a {min, max} tuple (min >= 0, max >= 1 or :infinity, min <= max), " <>
+              "got: #{inspect(value)}"
     end
   end
 
@@ -405,8 +406,9 @@ defmodule CLIX.SpecNG do
     else
       raise ArgumentError,
             location(cmd_path, {:opt, opt_name}) <>
-              "expected :num_args to be a non-negative integer, or a {min, max} tuple where " <>
-              "min >= 0 and max >= 0 or :infinity, got: #{inspect(value)}"
+              "expected :num_args to be a non-negative integer or " <>
+              "a {min, max} tuple (min >= 0, max >= 0 or :infinity, min <= max), " <>
+              "got: #{inspect(value)}"
     end
   end
 
