@@ -41,13 +41,15 @@ defmodule CLIX.SpecNGTest do
     test "cmd_name must be an atom" do
       assert_raise ArgumentError,
                    "under the cmd path [] - expected cmd_name to be an atom, got: \"my_cli\"",
-                   fn -> SpecNG.new!({"my_cli", %{}}) end
+                   # suppress the type warning by using apply/3
+                   fn -> apply(SpecNG, :new!, [{"my_cli", %{}}]) end
     end
 
     test "cmd_spec must be a map" do
       assert_raise ArgumentError,
                    "under the cmd path [] - expected cmd_spec to be a map, got: \"not map\"",
-                   fn -> SpecNG.new!({:example, "not map"}) end
+                   # suppress the type warning by using apply/3
+                   fn -> apply(SpecNG, :new!, [{:example, "not map"}]) end
     end
 
     test "non-tuple input to new! hits catch-all" do
