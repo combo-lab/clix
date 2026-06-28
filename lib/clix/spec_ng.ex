@@ -4,6 +4,11 @@ defmodule CLIX.SpecNG do
 
   A spec is the basis for parsing, feedback generation, etc.
 
+  ## Terminology
+
+  This module uses the terms "arg", "opt", "args" and "opts" as described in
+  the `CLIX` module documentation. See `CLIX` for details.
+
   ## Building at compile time
 
   `new!/1` checks the format and validates the semantics of input eagerly, then

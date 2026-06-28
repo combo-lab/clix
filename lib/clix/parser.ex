@@ -9,6 +9,11 @@ defmodule CLIX.Parser do
     * parse both sub-commands, positional arguments, and optional arguments
     * pepare read-to-use result
 
+  ## Terminology
+
+  This module uses the terms "pos_args" and "opt_args" as described in the `CLIX`
+  module documentation. See `CLIX` for details.
+
   ## Quick start
 
       iex> # 1. build a spec
