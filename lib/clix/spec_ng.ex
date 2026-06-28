@@ -253,7 +253,7 @@ defmodule CLIX.SpecNG do
   defp cf_arg_spec!({:value_parser, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :value_parser to be a {module(), args :: list()} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be a {module, args} tuple, got: #{inspect(value)}"
   end
 
   defp cf_arg_spec!({:required, value}, _cmd_path, _arg_name) when is_boolean(value), do: :ok
@@ -428,7 +428,7 @@ defmodule CLIX.SpecNG do
   defp cf_opt_spec!({:value_parser, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :value_parser to be a {module(), args :: list()} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be a {module, args} tuple, got: #{inspect(value)}"
   end
 
   defp cf_opt_spec!({:required, value}, _cmd_path, _opt_name) when is_boolean(value), do: :ok
