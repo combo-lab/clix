@@ -57,19 +57,117 @@ defmodule CLIX.SpecNG do
           optional(:default_value) => default_value()
         }
 
+  @typedoc """
+  A brief description shown in help text.
+  """
   @type help :: String.t() | nil
 
+  @typedoc """
+  The short flag of an option, without the leading dash (e.g. `"v"` for `-v`).
+
+  Must be a single character that is not a digit, `-`, `=`, or whitespace.
+  When `nil`, the option has no short flag.
+  """
   @type short :: String.t() | nil
+
+  @typedoc """
+  The long flag of an option, without the leading dashes (e.g. `"verbose"` for `--verbose`).
+
+  Must be a string of at least 2 characters, not starting with `-`, and not
+  containing `=` or whitespace. Internal hyphens are allowed (e.g. `"config-file"`).
+  When `nil`, the option has no long flag.
+  """
   @type long :: String.t() | nil
 
+  @typedoc """
+  How a parsed positional value is stored.
+
+    * `:set` — replaces the previous value (default).
+    * `:append` — appends to a list, allowing the argument to be repeated.
+
+  """
   @type arg_action :: :set | :append
+
+  @typedoc """
+  How a parsed option value is stored.
+
+    * `:set` — replaces the previous value (default).
+    * `:append` — appends to a list, allowing the option to be repeated.
+    * `:set_true` — sets the value to `true` without consuming a value.
+    * `:set_false` — sets the value to `false` without consuming a value.
+    * `:count` — increments an integer counter each time the flag appears.
+
+  `:set_true`, `:set_false`, and `:count` are flag actions, they consume zero
+  values and bypass `value_parser`.
+  """
   @type opt_action :: :set | :append | :set_true | :set_false | :count
 
-  @type num_args :: {non_neg_integer(), non_neg_integer() | :infinity} | non_neg_integer()
+  @typedoc """
+  The number of values an argument or option consumes.
 
+  Canonical and sugar forms are provided:
+
+    * `{min, max}` (canonical) — consumes between `min` and `max` values.
+    * `n` (sugar) — equivalent to `{n, n}` (exactly `n` values).
+
+  `max` may be `:infinity` for unbounded consumption.
+
+  The acceptable range of `min`/`max` depends on the context:
+
+    * arg: `min >= 0`, `max >= 1`, `min <= max`
+    * opt: `min >= 0`, `max >= 0`, `min <= max`
+
+  """
+  @type num_args :: num_args_canonical() | num_args_sugar()
+  @type num_args_canonical :: {non_neg_integer(), non_neg_integer() | :infinity}
+  @type num_args_sugar :: non_neg_integer()
+
+  @typedoc """
+  The placeholder name shown in usage and help text (e.g. `<FILE>`).
+
+  When `nil`, CLIX derives one from the arg/opt name.
+  """
   @type value_name :: String.t() | nil
-  @type value_parser :: {mod :: module(), args :: list()}
+
+  @typedoc """
+  The parser that converts a raw string value into a typed value.
+
+  Canonical and sugar forms are provided:
+
+    * `{mod, fun}` (canonical) — refers to `mod.fun/1`.
+    * `:string` / `:integer` / `:float` (sugar) — refers to built-in parsers
+      defined in `CLIX.ValueParser`.
+      For example, `:string` equals to `{CLIX.ValueParser, :string}`.
+
+  The function must accept a `String.t()` and return `{:ok, term()}` on
+  success or `{:error, reason :: String.t()}` on failure.
+
+  The error message should be a brief, value-agnostic reason.
+  """
+  @type value_parser :: value_parser_canonical() | value_parser_sugar()
+  @type value_parser_canonical :: {mod :: module(), fun :: atom()}
+  @type value_parser_sugar :: :string | :integer | :float
+
+  @typedoc """
+  Whether a value must be provided.
+
+  Defaults differ by kind:
+
+    * arg: `true`  (arguments are required by default)
+    * opt: `false` (options are optional by default)
+
+  Setting `:default_value` implicitly makes `:required` to `false`.
+  """
   @type required :: boolean()
+
+  @typedoc """
+  The fallback value used when the argument or option is not provided.
+
+  Always a `String.t()`, or `nil` means no default.
+
+  The string goes through `value_parser` at parse time. For example,
+  `default_value: "0"` with `value_parser: :integer` yields the integer `0`.
+  """
   @type default_value :: String.t() | nil
 
   @doc """
@@ -190,8 +288,7 @@ defmodule CLIX.SpecNG do
       action: :set,
       num_args: {1, 1},
       value_name: nil,
-      # TODO: use the parser for string
-      # value_parser: ?,
+      value_parser: :string,
       required: true,
       default_value: nil
     }
@@ -246,14 +343,20 @@ defmodule CLIX.SpecNG do
             "expected :value_name to be a string or nil, got: #{inspect(value)}"
   end
 
-  defp cf_arg_spec!({:value_parser, {mod, args}}, _cmd_path, _arg_name)
-       when is_atom(mod) and is_list(args),
+  @value_parser_sugars [:string, :integer, :float]
+
+  defp cf_arg_spec!({:value_parser, value}, _cmd_path, _arg_name)
+       when value in @value_parser_sugars,
+       do: :ok
+
+  defp cf_arg_spec!({:value_parser, {mod, fun}}, _cmd_path, _arg_name)
+       when is_atom(mod) and is_atom(fun),
        do: :ok
 
   defp cf_arg_spec!({:value_parser, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :value_parser to be a {module, args} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(value)}"
   end
 
   defp cf_arg_spec!({:required, value}, _cmd_path, _arg_name) when is_boolean(value), do: :ok
@@ -315,8 +418,7 @@ defmodule CLIX.SpecNG do
       action: :set,
       num_args: {1, 1},
       value_name: nil,
-      # TODO: use the parser for string
-      # value_parser: ?,
+      value_parser: :string,
       required: true,
       default_value: nil
     }
@@ -421,14 +523,18 @@ defmodule CLIX.SpecNG do
             "expected :value_name to be a string or nil, got: #{inspect(value)}"
   end
 
-  defp cf_opt_spec!({:value_parser, {mod, args}}, _cmd_path, _opt_name)
-       when is_atom(mod) and is_list(args),
+  defp cf_opt_spec!({:value_parser, value}, _cmd_path, _opt_name)
+       when value in @value_parser_sugars,
+       do: :ok
+
+  defp cf_opt_spec!({:value_parser, {mod, fun}}, _cmd_path, _opt_name)
+       when is_atom(mod) and is_atom(fun),
        do: :ok
 
   defp cf_opt_spec!({:value_parser, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :value_parser to be a {module, args} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(value)}"
   end
 
   defp cf_opt_spec!({:required, value}, _cmd_path, _opt_name) when is_boolean(value), do: :ok

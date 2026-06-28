@@ -147,7 +147,7 @@ defmodule CLIX.SpecNGTest do
                  action: :set,
                  num_args: {1, 1},
                  value_name: "FILE",
-                 value_parser: {String, []},
+                 value_parser: :string,
                  required: true,
                  default_value: nil
                })
@@ -187,12 +187,21 @@ defmodule CLIX.SpecNGTest do
                    fn -> arg(%{value_name: 42}) end
     end
 
-    test ":value_parser must be a {module, args} tuple" do
-      assert {_, _} = arg(%{value_parser: {String, []}})
+    test ":value_parser accepts sugar and canonical forms" do
+      for vp <- [:string, :integer, :float, {CLIX.ValueParser, :integer}] do
+        assert {_, _} = arg(%{value_parser: vp})
+      end
 
-      for vp <- [{MyMod}, {"mod", []}, :bad, {MyMod, "not list"}, {1, []}] do
+      for vp <- [
+            :boolean,
+            :unknown,
+            {MyMod},
+            {"MyMod", :parse},
+            {MyMod, "parse"},
+            {MyMod, []}
+          ] do
         assert_raise ArgumentError,
-                     "arg :file under the cmd path [:example] - expected :value_parser to be a {module, args} tuple, got: #{inspect(vp)}",
+                     "arg :file under the cmd path [:example] - expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(vp)}",
                      fn -> arg(%{value_parser: vp}) end
       end
     end
@@ -326,7 +335,7 @@ defmodule CLIX.SpecNGTest do
                  action: :count,
                  num_args: 0,
                  value_name: "VERBOSE",
-                 value_parser: {Integer, []},
+                 value_parser: :integer,
                  required: false,
                  default_value: nil
                })
@@ -370,12 +379,21 @@ defmodule CLIX.SpecNGTest do
                    fn -> opt(%{value_name: 42}) end
     end
 
-    test ":value_parser must be a {module, args} tuple" do
-      assert {_, _} = opt(%{value_parser: {String, []}})
+    test ":value_parser accepts sugar and canonical forms" do
+      for vp <- [:string, :integer, :float, {CLIX.ValueParser, :integer}] do
+        assert {_, _} = opt(%{value_parser: vp})
+      end
 
-      for bad <- [{MyMod}, {"mod", []}, :bad, {MyMod, "not list"}, {1, []}] do
+      for bad <- [
+            :boolean,
+            :unknown,
+            {MyMod},
+            {"MyMod", :parse},
+            {MyMod, "parse"},
+            {MyMod, []}
+          ] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :value_parser to be a {module, args} tuple, got: #{inspect(bad)}",
+                     "opt :mode under the cmd path [:example] - expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(bad)}",
                      fn -> opt(%{value_parser: bad}) end
       end
     end
