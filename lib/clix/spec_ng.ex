@@ -242,6 +242,7 @@ defmodule CLIX.SpecNG do
     if args = cmd_spec[:args], do: Enum.each(args, &cf_arg_pair!(&1, cmd_path))
     if opts = cmd_spec[:opts], do: Enum.each(opts, &cf_opt_pair!(&1, cmd_path))
     if cmds = cmd_spec[:cmds], do: Enum.each(cmds, &cf_cmd_pair!(&1, cmd_path))
+
     {cmd_name, cmd_spec}
   end
 
@@ -306,7 +307,7 @@ defmodule CLIX.SpecNG do
     end
 
     Enum.each(arg_spec, fn kv -> cf_arg_spec!(kv, cmd_path, arg_name) end)
-    {arg_name, arg_spec}
+    :ok
   end
 
   defp cf_arg_pair!(input, cmd_path) do
@@ -423,7 +424,7 @@ defmodule CLIX.SpecNG do
     end
 
     Enum.each(opt_spec, fn kv -> cf_opt_spec!(kv, cmd_path, opt_name) end)
-    {opt_name, opt_spec}
+    :ok
   end
 
   defp cf_opt_pair!(input, cmd_path) do
