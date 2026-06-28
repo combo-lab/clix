@@ -209,6 +209,9 @@ defmodule CLIX.SpecNG do
 
     {cmd_name, cmd_spec}
     |> cf_cmd_pair!(cmd_path)
+    |> wrap_and_merge_cmd_pair()
+    |> cs_cmd_pair!(cmd_path)
+    |> unwrap_pair()
   end
 
   def new!(input) do
@@ -568,6 +571,95 @@ defmodule CLIX.SpecNG do
        do: true
 
   defp cf_opt_num_args(_), do: false
+
+  ## Wrapping and merging data
+  # Merging data, and tags each value as {:user, v} or {:auto, v} for 
+  # distinguishing explicit from default.
+
+  defp wrap_and_merge_cmd_pair({cmd_name, cmd_spec}) do
+    default_cmd_spec = %{
+      help: nil,
+      args: [],
+      opts: [],
+      cmds: []
+    }
+
+    cmd_spec =
+      cmd_spec
+      |> update_map(:args, fn args -> Enum.map(args, &wrap_and_merge_arg_pair/1) end)
+      |> update_map(:opts, fn opts -> Enum.map(opts, &wrap_and_merge_opt_pair/1) end)
+      |> update_map(:cmds, fn cmds -> Enum.map(cmds, &wrap_and_merge_cmd_pair/1) end)
+
+    cmd_spec = Map.merge(wrap(:auto, default_cmd_spec), wrap(:user, cmd_spec))
+    {cmd_name, cmd_spec}
+  end
+
+  defp update_map(map, key, value_processor) do
+    case Map.fetch(map, key) do
+      {:ok, value} -> Map.put(map, key, value_processor.(value))
+      :error -> map
+    end
+  end
+
+  defp wrap_and_merge_arg_pair({arg_name, arg_spec}) do
+    default_arg_spec = %{
+      help: nil,
+      action: :set,
+      num_args: {1, 1},
+      value_name: nil,
+      value_parser: :string,
+      required: true,
+      default_value: nil
+    }
+
+    arg_spec = Map.merge(wrap(:auto, default_arg_spec), wrap(:user, arg_spec))
+    {arg_name, arg_spec}
+  end
+
+  defp wrap_and_merge_opt_pair({opt_name, opt_spec}) do
+    default_opt_spec = %{
+      help: nil,
+      short: nil,
+      long: nil,
+      action: :set,
+      num_args: {1, 1},
+      value_name: nil,
+      value_parser: :string,
+      required: true,
+      default_value: nil
+    }
+
+    opt_spec = Map.merge(wrap(:auto, default_opt_spec), wrap(:user, opt_spec))
+    {opt_name, opt_spec}
+  end
+
+  defp wrap(tag, data) when is_map(data) do
+    Map.new(data, fn {k, v} -> {k, {tag, v}} end)
+  end
+
+  ## Checking the semantics of data
+  # cs_ is the short of check_semantics_.
+
+  defp cs_cmd_pair!({cmd_name, cmd_spec}, _cmd_path) do
+    {cmd_name, cmd_spec}
+  end
+
+  ## Unwrapping data
+
+  defp unwrap_pair({name, spec}), do: {name, unwrap_spec(spec)}
+
+  defp unwrap_spec(wrapped) do
+    Map.new(wrapped, fn {k, v} -> {k, unwrap_value(v)} end)
+  end
+
+  defp unwrap_value({:user, v}), do: unwrap_inner(v)
+  defp unwrap_value({:auto, v}), do: unwrap_inner(v)
+
+  defp unwrap_inner(children) when is_list(children) do
+    Enum.map(children, &unwrap_pair/1)
+  end
+
+  defp unwrap_inner(v), do: v
 
   # defp fill_cmd_pair({cmd_name, cmd_spec}) do
   #   cmd_spec =
