@@ -25,7 +25,15 @@ defmodule CLIX.SpecNG do
 
   """
 
+  @typedoc """
+  The command's name.
+
+  The top-level cmd_name is the program name. If you name your CLI app as *example*,
+  then you should set the top-level cmd_name as `:example`.
+  """
   @type cmd_name :: atom()
+
+  @typedoc "The command's spec."
   @type cmd_spec :: %{
           optional(:help) => help(),
           optional(:args) => [{arg_name(), arg_spec()}],
@@ -33,7 +41,9 @@ defmodule CLIX.SpecNG do
           optional(:cmds) => [{cmd_name(), cmd_spec()}]
         }
 
+  @typedoc "The arg's name."
   @type arg_name :: atom()
+  @typedoc "The arg's spec."
   @type arg_spec :: %{
           optional(:help) => help(),
           optional(:action) => arg_action(),
@@ -44,7 +54,9 @@ defmodule CLIX.SpecNG do
           optional(:default_value) => default_value()
         }
 
+  @typedoc "The opt's name."
   @type opt_name :: atom()
+  @typedoc "The opt's spec."
   @type opt_spec :: %{
           optional(:help) => help(),
           optional(:short) => short(),
@@ -63,47 +75,59 @@ defmodule CLIX.SpecNG do
   @type help :: String.t() | nil
 
   @typedoc """
-  The short flag of an option, without the leading dash (e.g. `"v"` for `-v`).
+  The short form of an opt, without the leading dash (e.g. `"v"` for `-v`).
 
   Must be a single character that is not a digit, `-`, `=`, or whitespace.
-  When `nil`, the option has no short flag.
+  When `nil`, the opt has no short form.
   """
   @type short :: String.t() | nil
 
   @typedoc """
-  The long flag of an option, without the leading dashes (e.g. `"verbose"` for `--verbose`).
+  The long form of an opt, without the leading dashes (e.g. `"verbose"` for `--verbose`).
 
   Must be a string of at least 2 characters, not starting with `-`, and not
   containing `=` or whitespace. Internal hyphens are allowed (e.g. `"config-file"`).
-  When `nil`, the option has no long flag.
+  When `nil`, the opt has no long form.
   """
   @type long :: String.t() | nil
 
   @typedoc """
-  How a parsed positional value is stored.
+  How a parsed arg value is stored.
 
-    * `:set` — replaces the previous value (default).
-    * `:append` — appends to a list, allowing the argument to be repeated.
-
+  See `t:value_action/0` for available actions.
   """
-  @type arg_action :: :set | :append
+  @type arg_action :: value_action()
 
   @typedoc """
-  How a parsed option value is stored.
+  How a parsed opt value is stored.
+
+  See `t:value_action/0` and `t:flag_action/0` for available actions.
+  """
+  @type opt_action :: value_action() | flag_action()
+
+  @typedoc """
+  Value actions, which consume one or more values:
 
     * `:set` — replaces the previous value (default).
-    * `:append` — appends to a list, allowing the option to be repeated.
+    * `:append` — appends to a list, allowing the arg or opt to be repeated.
+
+  """
+  @type value_action :: :set | :append
+  @value_actions [:set, :append]
+
+  @typedoc """
+  Flag actions, which consume zero values and bypass `:value_parser`:
+
     * `:set_true` — sets the value to `true` without consuming a value.
     * `:set_false` — sets the value to `false` without consuming a value.
     * `:count` — increments an integer counter each time the flag appears.
 
-  `:set_true`, `:set_false`, and `:count` are flag actions, they consume zero
-  values and bypass `value_parser`.
   """
-  @type opt_action :: :set | :append | :set_true | :set_false | :count
+  @type flag_action :: :set_true | :set_false | :count
+  @flag_actions [:set_true, :set_false, :count]
 
   @typedoc """
-  The number of values an argument or option consumes.
+  The number of values an arg or opt consumes.
 
   Canonical and sugar forms are provided:
 
@@ -123,7 +147,7 @@ defmodule CLIX.SpecNG do
   @type num_args_sugar :: non_neg_integer()
 
   @typedoc """
-  The placeholder name shown in usage and help text (e.g. `<FILE>`).
+  The value placeholder shown in usage and help text (e.g. `<FILE>`).
 
   When `nil`, CLIX derives one from the arg/opt name.
   """
@@ -153,15 +177,15 @@ defmodule CLIX.SpecNG do
 
   Defaults differ by kind:
 
-    * arg: `true`  (arguments are required by default)
-    * opt: `false` (options are optional by default)
+    * args: `true`  (args are required by default)
+    * opts: `false` (opts are optional by default)
 
-  Setting `:default_value` implicitly makes `:required` to `false`.
+  Setting `:default_value` implicitly sets `:required` to `false`.
   """
   @type required :: boolean()
 
   @typedoc """
-  The fallback value used when the argument or option is not provided.
+  The fallback value used when the arg or opt is not provided.
 
   Always a `String.t()`, or `nil` means no default.
 
@@ -313,13 +337,13 @@ defmodule CLIX.SpecNG do
             "expected :help to be a string or nil, got: #{inspect(value)}"
   end
 
-  @arg_valid_actions [:set, :append]
-  defp cf_arg_spec!({:action, value}, _cmd_path, _arg_name) when value in @arg_valid_actions, do: :ok
+  @arg_actions @value_actions
+  defp cf_arg_spec!({:action, value}, _cmd_path, _arg_name) when value in @arg_actions, do: :ok
 
   defp cf_arg_spec!({:action, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :action to be one of #{inspect(@arg_valid_actions)}, got: #{inspect(value)}"
+            "expected :action to be one of #{inspect(@arg_actions)}, got: #{inspect(value)}"
   end
 
   defp cf_arg_spec!({:num_args, value}, cmd_path, arg_name) do
@@ -493,13 +517,13 @@ defmodule CLIX.SpecNG do
             "expected :long to be a string of length >= 2 or nil, got: #{inspect(value)}"
   end
 
-  @opt_valid_actions [:set, :append, :set_true, :set_false, :count]
-  defp cf_opt_spec!({:action, value}, _cmd_path, _opt_name) when value in @opt_valid_actions, do: :ok
+  @opt_actions @value_actions ++ @flag_actions
+  defp cf_opt_spec!({:action, value}, _cmd_path, _opt_name) when value in @opt_actions, do: :ok
 
   defp cf_opt_spec!({:action, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :action to be one of #{inspect(@opt_valid_actions)}, got: #{inspect(value)}"
+            "expected :action to be one of #{inspect(@opt_actions)}, got: #{inspect(value)}"
   end
 
   defp cf_opt_spec!({:num_args, value}, cmd_path, opt_name) do
