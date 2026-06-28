@@ -217,9 +217,9 @@ defmodule CLIX.SpecNG do
             "expected a {cmd_name, cmd_spec} tuple, got: #{inspect(input)}"
   end
 
-  ## Check the format of spec
-
+  ## Checking the format of data
   # cf_ is the short of check_format_.
+
   defp cf_cmd_pair!({cmd_name, cmd_spec}, cmd_path) do
     if not is_atom(cmd_name) do
       raise ArgumentError,
@@ -235,20 +235,10 @@ defmodule CLIX.SpecNG do
 
     cmd_path = [cmd_name | cmd_path]
 
-    default_cmd_spec = %{
-      help: nil,
-      args: [],
-      opts: [],
-      cmds: []
-    }
-
-    cmd_spec = Map.merge(default_cmd_spec, cmd_spec)
-
     Enum.each(cmd_spec, fn kv -> cf_cmd_spec!(kv, cmd_path) end)
-    Enum.each(cmd_spec.args, &cf_arg_pair!(&1, cmd_path))
-    Enum.each(cmd_spec.opts, &cf_opt_pair!(&1, cmd_path))
-    Enum.each(cmd_spec.cmds, &cf_cmd_pair!(&1, cmd_path))
-
+    if args = cmd_spec[:args], do: Enum.each(args, &cf_arg_pair!(&1, cmd_path))
+    if opts = cmd_spec[:opts], do: Enum.each(opts, &cf_opt_pair!(&1, cmd_path))
+    if cmds = cmd_spec[:cmds], do: Enum.each(cmds, &cf_cmd_pair!(&1, cmd_path))
     {cmd_name, cmd_spec}
   end
 
@@ -312,17 +302,6 @@ defmodule CLIX.SpecNG do
               " to be a map, got: " <> inspect(arg_spec)
     end
 
-    default_arg_spec = %{
-      help: nil,
-      action: :set,
-      num_args: {1, 1},
-      value_name: nil,
-      value_parser: :string,
-      required: true,
-      default_value: nil
-    }
-
-    arg_spec = Map.merge(default_arg_spec, arg_spec)
     Enum.each(arg_spec, fn kv -> cf_arg_spec!(kv, cmd_path, arg_name) end)
     {arg_name, arg_spec}
   end
@@ -440,19 +419,6 @@ defmodule CLIX.SpecNG do
               " to be a map, got: " <> inspect(opt_spec)
     end
 
-    default_opt_spec = %{
-      help: nil,
-      short: nil,
-      long: nil,
-      action: :set,
-      num_args: {1, 1},
-      value_name: nil,
-      value_parser: :string,
-      required: true,
-      default_value: nil
-    }
-
-    opt_spec = Map.merge(default_opt_spec, opt_spec)
     Enum.each(opt_spec, fn kv -> cf_opt_spec!(kv, cmd_path, opt_name) end)
     {opt_name, opt_spec}
   end
