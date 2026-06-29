@@ -28,7 +28,7 @@ defmodule CLIX.SpecNG do
   An invalid spec will fail `mix compile` with the same `ArgumentError` you'd
   see at runtime.
 
-  ## The basic mind module
+  ## The basic mindset
 
   `:action` controls:
 
