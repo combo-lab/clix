@@ -1,10 +1,18 @@
-defmodule CLIX.SpecNG.CheckSemanticsTest do
+defmodule CLIX.SpecNG.SemanticsTest do
   use ExUnit.Case, async: true
 
-  alias CLIX.SpecNG
+  alias CLIX.SpecNG.Types
+  alias CLIX.SpecNG.Semantics
+
+  defp new!({cmd_name, cmd_spec}) do
+    cmd_path = []
+    Types.check!({cmd_name, cmd_spec}, cmd_path)
+    Semantics.check!({cmd_name, cmd_spec}, cmd_path)
+    {cmd_name, cmd_spec}
+  end
 
   defp spec(overrides) when is_map(overrides) do
-    SpecNG.new!({:example, overrides})
+    new!({:example, overrides})
   end
 
   defp arg(overrides) when is_map(overrides) do
@@ -44,6 +52,42 @@ defmodule CLIX.SpecNG.CheckSemanticsTest do
     end
   end
 
+  describe "structural constraints - duplicate short/long -" do
+    test "duplicate short is rejected" do
+      assert_raise ArgumentError,
+                   "under the cmd path [:example] - duplicate short \"v\" between :verbose and :version",
+                   fn ->
+                     spec(%{opts: [verbose: %{short: "v"}, version: %{short: "v"}]})
+                   end
+    end
+
+    test "duplicate long is rejected" do
+      assert_raise ArgumentError,
+                   "under the cmd path [:example] - duplicate long \"verbose\" between :verbose and :version",
+                   fn ->
+                     spec(%{opts: [verbose: %{long: "verbose"}, version: %{long: "verbose"}]})
+                   end
+    end
+
+    test "same short across different cmds is OK" do
+      assert {_, _} =
+               spec(%{
+                 cmds: [
+                   sub1: %{opts: [mode: %{short: "m"}]},
+                   sub2: %{opts: [mode: %{short: "m"}]}
+                 ]
+               })
+
+      assert {_, _} =
+               spec(%{
+                 cmds: [
+                   sub1: %{opts: [mode: %{long: "mode"}]},
+                   sub2: %{opts: [mode: %{long: "mode"}]}
+                 ]
+               })
+    end
+  end
+
   describe "structural constraints - unbounded args -" do
     test "single unbounded arg is OK" do
       assert {_, _} = spec(%{args: [a: %{num_args: {1, :infinity}}]})
@@ -71,34 +115,6 @@ defmodule CLIX.SpecNG.CheckSemanticsTest do
                    fn ->
                      spec(%{args: [a: %{num_args: {1, :infinity}}, b: %{num_args: 1}]})
                    end
-    end
-  end
-
-  describe "structural constraints - duplicate short/long -" do
-    test "duplicate short is rejected" do
-      assert_raise ArgumentError,
-                   "under the cmd path [:example] - duplicate short \"v\" between :verbose and :version",
-                   fn ->
-                     spec(%{opts: [verbose: %{short: "v"}, version: %{short: "v"}]})
-                   end
-    end
-
-    test "duplicate long is rejected" do
-      assert_raise ArgumentError,
-                   "under the cmd path [:example] - duplicate long \"verbose\" between :verbose and :version",
-                   fn ->
-                     spec(%{opts: [verbose: %{long: "verbose"}, version: %{long: "verbose"}]})
-                   end
-    end
-
-    test "same short across different cmds is OK" do
-      assert {_, _} =
-               spec(%{
-                 cmds: [
-                   sub1: %{opts: [mode: %{short: "m"}]},
-                   sub2: %{opts: [mode: %{short: "m"}]}
-                 ]
-               })
     end
   end
 

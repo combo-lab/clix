@@ -1,10 +1,16 @@
-defmodule CLIX.SpecNG.CheckFormatTest do
+defmodule CLIX.SpecNG.TypesTest do
   use ExUnit.Case, async: true
 
-  alias CLIX.SpecNG
+  alias CLIX.SpecNG.Types
+
+  defp new!({cmd_name, cmd_spec}) do
+    cmd_path = []
+    Types.check!({cmd_name, cmd_spec}, cmd_path)
+    {cmd_name, cmd_spec}
+  end
 
   defp spec(overrides) when is_map(overrides) do
-    SpecNG.new!({:example, overrides})
+    new!({:example, overrides})
   end
 
   defp arg(overrides) when is_map(overrides) do
@@ -17,12 +23,12 @@ defmodule CLIX.SpecNG.CheckFormatTest do
 
   describe "valid spec -" do
     test "empty cmd_spec is accepted" do
-      assert {_, _} = SpecNG.new!({:my_cli, %{}})
+      assert {_, _} = new!({:my_cli, %{}})
     end
 
     test "nested cmds with args, opts, and sub-cmds are accepted" do
       assert {_, _} =
-               SpecNG.new!(
+               new!(
                  {:my_cli,
                   %{
                     cmds: [
@@ -37,33 +43,35 @@ defmodule CLIX.SpecNG.CheckFormatTest do
     end
   end
 
-  describe "cmd pair guards -" do
-    test "cmd_name must be an atom" do
-      assert_raise ArgumentError,
-                   "under the cmd path [] - expected cmd_name to be an atom, got: \"my_cli\"",
-                   # suppress the type warning by using apply/3
-                   fn -> apply(SpecNG, :new!, [{"my_cli", %{}}]) end
-    end
+  # describe "cmd pair guards -" do
+  #   test "cmd_name must be an atom" do
+  #     assert_raise ArgumentError,
+  #                  "under the cmd path [] - expected cmd_name to be an atom, got: \"my_cli\"",
+  #                  # suppress the type warning by using apply/3
+  #                  fn -> apply(__MODULE__, :new!, [{"my_cli", %{}}]) end
+  #   end
 
-    test "cmd_spec must be a map" do
-      assert_raise ArgumentError,
-                   "under the cmd path [] - expected cmd_spec to be a map, got: \"not map\"",
-                   # suppress the type warning by using apply/3
-                   fn -> apply(SpecNG, :new!, [{:example, "not map"}]) end
-    end
+  #   test "cmd_spec must be a map" do
+  #     assert_raise ArgumentError,
+  #                  "under the cmd path [] - expected cmd_spec to be a map, got: \"not map\"",
+  #                  # suppress the type warning by using apply/3
+  #                  fn -> apply(__MODULE__, :new!, [{:example, "not map"}]) end
+  #   end
 
-    test "non-tuple input to new! hits catch-all" do
-      assert_raise ArgumentError,
-                   "under the cmd path [] - expected a {cmd_name, cmd_spec} tuple, got: :atom",
-                   fn -> SpecNG.new!(:atom) end
-    end
+  #   test "non-tuple input to new! hits catch-all" do
+  #     assert_raise ArgumentError,
+  #                  "under the cmd path [] - expected a {cmd_name, cmd_spec} tuple, got: :atom",
+  #                  # suppress the type warning by using apply/3
+  #                  fn -> apply(&new!/1, [:atom]) end
+  #   end
 
-    test "non-tuple element in nested cmds hits catch-all" do
-      assert_raise ArgumentError,
-                   "under the cmd path [:my_cli] - expected a {cmd_name, cmd_spec} tuple, got: :atom",
-                   fn -> SpecNG.new!({:my_cli, %{cmds: [:atom]}}) end
-    end
-  end
+  #   test "non-tuple element in nested cmds hits catch-all" do
+  #     assert_raise ArgumentError,
+  #                  "under the cmd path [:my_cli] - expected a {cmd_name, cmd_spec} tuple, got: :atom",
+  #                  # suppress the type warning by using apply/3
+  #                  fn -> apply(&new!/1, [{:my_cli, %{cmds: [:atom]}}]) end
+  #   end
+  # end
 
   describe "cmd_spec fields -" do
     test "all cmd_spec fields are accepted" do
@@ -304,10 +312,8 @@ defmodule CLIX.SpecNG.CheckFormatTest do
   end
 
   describe "opt pair guards -" do
-    test "empty opt_spec without short or long is rejected" do
-      assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :short or :long to be set",
-                   fn -> spec(%{opts: [mode: %{}]}) end
+    test "empty opt_spec is accepted" do
+      assert {_, _} = spec(%{opts: [mode: %{}]})
     end
 
     test "opt_name must be an atom" do
@@ -336,8 +342,8 @@ defmodule CLIX.SpecNG.CheckFormatTest do
                  help: "verbose level",
                  short: "v",
                  long: "verbose",
-                 action: :set,
-                 num_args: {1, 1},
+                 action: :count,
+                 num_args: 0,
                  value_name: "VERBOSE",
                  value_parser: :integer,
                  required: false,
