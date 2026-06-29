@@ -101,13 +101,13 @@ defmodule CLIX.SpecNG.Semantics do
   end
 
   defp check_arg_pair!({arg_name, arg_spec}, cmd_path) do
-    check_default_required_conflict!(arg_spec, arg_name, cmd_path, :arg)
+    check_required_default_value_conflict!(arg_spec, arg_name, cmd_path, :arg)
     :ok
   end
 
   defp check_opt_pair!({opt_name, opt_spec}, cmd_path) do
     check_opt_has_short_or_long!(opt_spec, opt_name, cmd_path)
-    check_default_required_conflict!(opt_spec, opt_name, cmd_path, :opt)
+    check_required_default_value_conflict!(opt_spec, opt_name, cmd_path, :opt)
     check_flag_action_conflicts!(opt_spec, opt_name, cmd_path)
     :ok
   end
@@ -211,7 +211,7 @@ defmodule CLIX.SpecNG.Semantics do
     end
   end
 
-  defp check_default_required_conflict!(spec, name, cmd_path, kind) do
+  defp check_required_default_value_conflict!(spec, name, cmd_path, kind) do
     case {spec.required, spec.default_value} do
       {{:user, true}, {:user, dv}} when dv != nil ->
         raise ArgumentError,
