@@ -93,23 +93,35 @@ defmodule CLIX.SpecNG.SemanticsTest do
       assert {_, _} = spec(%{args: [a: %{num_args: {1, :infinity}}]})
     end
 
+    test "bounded args is OK" do
+      assert {_, _} = spec(%{args: [a: %{num_args: {0, 2}}, b: %{num_args: {0, 3}}]})
+    end
+
     test "one unbounded arg at the end is OK" do
       assert {_, _} = spec(%{args: [a: %{num_args: 1}, b: %{num_args: {1, :infinity}}]})
     end
 
-    test "bounded args don't trigger unbounded checks" do
-      assert {_, _} = spec(%{args: [a: %{num_args: {0, 2}}, b: %{num_args: {0, 3}}]})
-    end
-
-    test "at most one unbounded arg" do
+    test "must be at most one" do
       assert_raise ArgumentError,
                    "under the cmd path [:example] - unbounded args :a and :b - at most one is allowed",
                    fn ->
                      spec(%{args: [a: %{num_args: {1, :infinity}}, b: %{num_args: {1, :infinity}}]})
                    end
+
+      assert_raise ArgumentError,
+                   "under the cmd path [:example] - unbounded args :a, :b, and :c - at most one is allowed",
+                   fn ->
+                     spec(%{
+                       args: [
+                         a: %{num_args: {1, :infinity}},
+                         b: %{num_args: {1, :infinity}},
+                         c: %{num_args: {0, :infinity}}
+                       ]
+                     })
+                   end
     end
 
-    test "unbounded arg not at the end is rejected" do
+    test "must be the last arg" do
       assert_raise ArgumentError,
                    "under the cmd path [:example] - unbounded arg :a must be the last arg",
                    fn ->
@@ -119,105 +131,138 @@ defmodule CLIX.SpecNG.SemanticsTest do
   end
 
   describe "field conflicts - arg -" do
-    test "default_value + required: true conflicts" do
+    test "num_args: <set> (zero) is rejected" do
+      # checked by types checker
+    end
+
+    test "required: true + default_value: <unset> is accepted" do
+      assert {_, _} = arg(%{required: true})
+    end
+
+    test "required: true + default_value: <set> is rejected" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - :default_value conflicts with :required: true",
+                   "arg :file under the cmd path [:example] - :default_value conflicts with required: true",
                    fn -> arg(%{required: true, default_value: "x"}) end
     end
 
-    test "default_value: nil + required: true is OK" do
-      assert {_, _} = arg(%{required: true, default_value: nil})
+    test "required: false + default_value: <unset> is accepted" do
+      assert {_, _} = arg(%{required: false})
     end
 
-    test "default_value + required not set is OK" do
+    test "required: false + default_value: <set> is accepted" do
+      assert {_, _} = arg(%{required: false, default_value: "x"})
+    end
+
+    test "required: <unset> + default_value: <set> is accepted" do
       assert {_, _} = arg(%{default_value: "x"})
     end
   end
 
   describe "field conflicts - opt -" do
-    test "default_value + required: true conflicts" do
-      assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - :default_value conflicts with :required: true",
-                   fn -> opt(%{required: true, default_value: "x"}) end
-    end
-
-    test "opt without short or long is rejected" do
+    test "short: <unset> + long: <unset> is rejected" do
       assert_raise ArgumentError,
                    "opt :mode under the cmd path [:example] - expected :short or :long to be set",
                    fn -> spec(%{opts: [mode: %{}]}) end
     end
 
-    test "flag action + num_args (non-zero) conflicts" do
-      for n <- [1, 2, {1, 1}, {0, 1}, {1, :infinity}] do
+    test "required: true + default_value: <set> is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - :default_value conflicts with required: true",
+                   fn -> opt(%{required: true, default_value: "x"}) end
+    end
+
+    test "flag action + minimal fields is accepted" do
+      assert {_, _} = spec(%{opts: [verbose: %{short: "v", action: :set_true}]})
+      assert {_, _} = spec(%{opts: [quiet: %{long: "quiet", action: :set_false}]})
+      assert {_, _} = spec(%{opts: [count: %{short: "c", action: :count}]})
+    end
+
+    test "flag action + value_name: <set> is rejected" do
+      for a <- [:set_true, :set_false, :count] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - flag action :count conflicts with num_args: #{inspect(n)}",
-                     fn -> opt(%{action: :count, num_args: n}) end
+                     "opt :mode under the cmd path [:example] - :value_name conflicts with action: #{inspect(a)}",
+                     fn -> opt(%{action: a, value_name: "FILE"}) end
       end
     end
 
-    test "flag action + num_args: 0 is OK" do
+    test "flag action + value_name: <unset> is accepted" do
+      for a <- [:set_true, :set_false, :count] do
+        assert {_, _} = opt(%{action: a})
+      end
+    end
+
+    test "flag action + num_args: <set> (not zero) is rejected" do
+      for a <- [:set_true, :set_false, :count],
+          n <- [1, 2, {1, 1}, {0, 1}, {1, :infinity}] do
+        assert_raise ArgumentError,
+                     "opt :mode under the cmd path [:example] - num_args: #{inspect(n)} conflicts with action: #{inspect(a)}",
+                     fn -> opt(%{action: a, num_args: n}) end
+      end
+    end
+
+    test "flag action + num_args: <set> (zero) is accepted" do
       assert {_, _} = opt(%{action: :count, num_args: 0})
       assert {_, _} = opt(%{action: :count, num_args: {0, 0}})
     end
 
-    test "flag action without num_args is OK" do
-      assert {_, _} = opt(%{action: :count})
-    end
-
-    test "flag action + default_value conflicts" do
-      for action <- [:set_true, :set_false, :count] do
-        assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - flag action #{inspect(action)} conflicts with default_value: \"x\"",
-                     fn -> opt(%{action: action, default_value: "x"}) end
+    test "flag action + num_args: <unset> is accepted" do
+      for a <- [:set_true, :set_false, :count] do
+        assert {_, _} = opt(%{action: a})
       end
     end
 
-    test "flag action + default_value: nil is OK" do
-      assert {_, _} = opt(%{action: :count, default_value: nil})
-    end
-
-    test "flag action + value_parser conflicts" do
-      for vp <- [:string, :integer, :float, {MyMod, :parse}] do
+    test "flag action + value_parser: <set> is rejected" do
+      for a <- [:set_true, :set_false, :count] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - flag action :count conflicts with value_parser",
-                     fn -> opt(%{action: :count, value_parser: vp}) end
+                     "opt :mode under the cmd path [:example] - :value_parser conflicts with action: #{inspect(a)}",
+                     fn -> opt(%{action: a, value_parser: :string}) end
       end
     end
 
-    test "flag action + value_name conflicts" do
-      assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - flag action :count conflicts with value_name: \"FILE\"",
-                   fn -> opt(%{action: :count, value_name: "FILE"}) end
+    test "flag action + value_parser: <unset> is accepted" do
+      for a <- [:set_true, :set_false, :count] do
+        assert {_, _} = opt(%{action: a})
+      end
     end
 
-    test "flag action + value_name: nil is OK" do
-      assert {_, _} = opt(%{action: :count, value_name: nil})
+    test "flag action + default_value: <set> is rejected" do
+      for a <- [:set_true, :set_false, :count] do
+        assert_raise ArgumentError,
+                     "opt :mode under the cmd path [:example] - :default_value conflicts with action: #{inspect(a)}",
+                     fn -> opt(%{action: a, default_value: "x"}) end
+      end
     end
 
-    test "value action + num_args is OK" do
+    test "value action + num_args: <set> is OK" do
       assert {_, _} = opt(%{action: :set, num_args: 2})
       assert {_, _} = opt(%{action: :append, num_args: {1, :infinity}})
+    end
+
+    test "value action + value_parser: <set> + default_value: <set> is accepted" do
+      for a <- [:set, :append] do
+        assert {_, _} = opt(%{action: a, value_parser: :integer, default_value: "0"})
+      end
     end
   end
 
   describe "nested cmds - semantics are validated recursively -" do
     test "duplicate arg names in nested cmd are rejected" do
       assert_raise ArgumentError,
-                   "under the cmd path [:example, :sub] - duplicate arg name :file",
+                   "under the cmd path [:example, :subcmd] - duplicate arg name :file",
                    fn ->
-                     spec(%{cmds: [sub: %{args: [file: %{}, file: %{num_args: {0, 1}}]}]})
+                     spec(%{cmds: [subcmd: %{args: [file: %{}, file: %{num_args: {0, 1}}]}]})
                    end
     end
 
     test "opt without short/long in nested cmd is rejected" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example, :sub] - expected :short or :long to be set",
-                   fn -> spec(%{cmds: [sub: %{opts: [mode: %{}]}]}) end
+                   "opt :mode under the cmd path [:example, :subcmd] - expected :short or :long to be set",
+                   fn -> spec(%{cmds: [subcmd: %{opts: [mode: %{}]}]}) end
     end
 
     test "flag action conflict in nested cmd is rejected" do
       assert_raise ArgumentError,
-                   "opt :verbose under the cmd path [:example, :sub] - flag action :count conflicts with value_parser",
+                   "opt :verbose under the cmd path [:example, :sub] - :value_parser conflicts with action: :count",
                    fn ->
                      spec(%{cmds: [sub: %{opts: [verbose: %{short: "v", action: :count, value_parser: :integer}]}]})
                    end
@@ -231,21 +276,6 @@ defmodule CLIX.SpecNG.SemanticsTest do
                  args: [src: %{num_args: {1, :infinity}}],
                  opts: [verbose: %{short: "v", action: :count}, output: %{long: "output", value_parser: :string}],
                  cmds: [setup: %{}, teardown: %{}]
-               })
-    end
-
-    test "flag action with minimal fields is accepted" do
-      assert {_, _} = spec(%{opts: [verbose: %{short: "v", action: :set_true}]})
-      assert {_, _} = spec(%{opts: [quiet: %{long: "quiet", action: :set_false}]})
-      assert {_, _} = spec(%{opts: [count: %{short: "c", action: :count}]})
-    end
-
-    test "value action with value_parser and default_value is accepted" do
-      assert {_, _} =
-               opt(%{
-                 action: :set,
-                 value_parser: :integer,
-                 default_value: "0"
                })
     end
   end
