@@ -227,9 +227,9 @@ defmodule CLIX.SpecNG.Semantics do
   defp wrap_arg_pair({arg_name, arg_spec}) do
     default_arg_spec = %{
       help: nil,
+      value_name: nil,
       action: :set,
       num_args: {1, 1},
-      value_name: nil,
       value_parser: :string,
       required: true,
       default_value: nil
@@ -244,9 +244,9 @@ defmodule CLIX.SpecNG.Semantics do
       help: nil,
       short: nil,
       long: nil,
+      value_name: nil,
       action: :set,
       num_args: {1, 1},
-      value_name: nil,
       value_parser: :string,
       required: true,
       default_value: nil

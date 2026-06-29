@@ -28,6 +28,18 @@ defmodule CLIX.SpecNG do
   An invalid spec will fail `mix compile` with the same `ArgumentError` you'd
   see at runtime.
 
+  ## The basic mind module
+
+  `:action` controls:
+
+    * whether values are consumed.
+    * how multiple occurrences fold.
+
+  `:num_args` controls how many values are consumed per occurrence.
+
+  `:value_parser` controls how a raw string value is parsed (bypassed when
+  `:num_args` is `{0, 0}`).
+
   """
 
   @typedoc """
@@ -51,9 +63,9 @@ defmodule CLIX.SpecNG do
   @typedoc "The arg's spec."
   @type arg_spec :: %{
           optional(:help) => help(),
+          optional(:value_name) => value_name(),
           optional(:action) => arg_action(),
           optional(:num_args) => num_args(),
-          optional(:value_name) => value_name(),
           optional(:value_parser) => value_parser(),
           optional(:required) => required(),
           optional(:default_value) => default_value()
@@ -66,9 +78,9 @@ defmodule CLIX.SpecNG do
           optional(:help) => help(),
           optional(:short) => short(),
           optional(:long) => long(),
+          optional(:value_name) => value_name(),
           optional(:action) => opt_action(),
           optional(:num_args) => num_args(),
-          optional(:value_name) => value_name(),
           optional(:value_parser) => value_parser(),
           optional(:required) => required(),
           optional(:default_value) => default_value()
@@ -97,35 +109,53 @@ defmodule CLIX.SpecNG do
   @type long :: String.t() | nil
 
   @typedoc """
-  How a parsed arg value is stored.
+  How an arg consumes and stores values.
 
   See `t:value_action/0` for available actions.
   """
   @type arg_action :: value_action()
 
   @typedoc """
-  How a parsed opt value is stored.
+  How an opt consumes and stores values.
 
   See `t:value_action/0` and `t:flag_action/0` for available actions.
   """
   @type opt_action :: value_action() | flag_action()
 
   @typedoc """
-  Value actions, which consume one or more values:
+  Value actions, which consume one or more values.
 
-    * `:set` — replaces the previous value (default).
-    * `:append` — appends to a list, allowing the arg or opt to be repeated.
+  The final result shape is decideded by `:action` and `:num_args`:
+
+    * `:set` — each occurrence replaces the previous value (default).
+        * `{1, 1}` → a scalar; the last occurrence wins.
+            `-x a -x b` → `b`
+        * `{N, N}` (N > 1) → a list of length N; the last occurrence wins.
+            `--env K1 V1 --env K2 V2` → `["K2", "V2"]`
+
+      The shape follows `:num_args`; N = 1 degrading to a scalar is the
+      special case.
+
+    * `:append` — each occurrence appends to a list, allowing the arg or
+      opt to be repeated.
+        * `{1, 1}` → a flat list of scalars.
+            `-x a -x b -x c` → `["a", "b", "c"]`
+        * `{N, N}` (N > 1) → a list of lists, each of length N.
+            `--env K1 V1 --env K2 V2` → `[["K1", "V1"], ["K2", "V2"]]`
 
   """
   @type value_action :: :set | :append
   @value_actions [:set, :append]
 
   @typedoc """
-  Flag actions, which consume zero values and bypass `:value_parser`:
+  Flag actions, which consume zero values and bypass `:value_parser`.
 
-    * `:set_true` — sets the value to `true` without consuming a value.
-    * `:set_false` — sets the value to `false` without consuming a value.
-    * `:count` — increments an integer counter each time the flag appears.
+  The final result shape:
+
+    * `:set_true`  → `true`.
+    * `:set_false` → `false`.
+    * `:count`     → a non-negative integer counter, incremented each time
+      the flag appears; `0` when absent.
 
   """
   @type flag_action :: :set_true | :set_false | :count
@@ -159,7 +189,7 @@ defmodule CLIX.SpecNG do
   @type value_name :: String.t() | nil
 
   @typedoc """
-  The parser that converts a raw string value into a typed value.
+  The parser that parses a raw string value into a typed value.
 
   Canonical and sugar forms are provided:
 
@@ -178,7 +208,7 @@ defmodule CLIX.SpecNG do
   @type value_parser_sugar :: :string | :integer | :float
 
   @typedoc """
-  Whether a value must be provided.
+  Whether an arg or opt must be provided.
 
   Defaults differ by kind:
 
@@ -194,7 +224,7 @@ defmodule CLIX.SpecNG do
 
   Always a `String.t()`, or `nil` means no default.
 
-  The string goes through `value_parser` at parse time. For example,
+  The string goes through `:value_parser` at parse time. For example,
   `default_value: "0"` with `value_parser: :integer` yields the integer `0`.
   """
   @type default_value :: String.t() | nil

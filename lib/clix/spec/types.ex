@@ -109,6 +109,15 @@ defmodule CLIX.SpecNG.Types do
             "expected :help to be a string or nil, got: #{inspect(value)}"
   end
 
+  defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_binary(value), do: :ok
+  defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_nil(value), do: :ok
+
+  defp check_arg_spec!({:value_name, value}, cmd_path, arg_name) do
+    raise ArgumentError,
+          location(cmd_path, {:arg, arg_name}) <>
+            "expected :value_name to be a string or nil, got: #{inspect(value)}"
+  end
+
   @arg_actions value_actions()
   defp check_arg_spec!({:action, value}, _cmd_path, _arg_name) when value in @arg_actions, do: :ok
 
@@ -128,15 +137,6 @@ defmodule CLIX.SpecNG.Types do
               "a {min, max} tuple (min >= 0, max >= 1 or :infinity, min <= max), " <>
               "got: #{inspect(value)}"
     end
-  end
-
-  defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_binary(value), do: :ok
-  defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_nil(value), do: :ok
-
-  defp check_arg_spec!({:value_name, value}, cmd_path, arg_name) do
-    raise ArgumentError,
-          location(cmd_path, {:arg, arg_name}) <>
-            "expected :value_name to be a string or nil, got: #{inspect(value)}"
   end
 
   @value_parser_sugars [:string, :integer, :float]
@@ -276,6 +276,15 @@ defmodule CLIX.SpecNG.Types do
             "expected :long to be a string of length >= 2 or nil, got: #{inspect(value)}"
   end
 
+  defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_binary(value), do: :ok
+  defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
+
+  defp check_opt_spec!({:value_name, value}, cmd_path, opt_name) do
+    raise ArgumentError,
+          location(cmd_path, {:opt, opt_name}) <>
+            "expected :value_name to be a string or nil, got: #{inspect(value)}"
+  end
+
   @opt_actions value_actions() ++ flag_actions()
   defp check_opt_spec!({:action, value}, _cmd_path, _opt_name) when value in @opt_actions, do: :ok
 
@@ -295,15 +304,6 @@ defmodule CLIX.SpecNG.Types do
               "a {min, max} tuple (min >= 0, max >= 0 or :infinity, min <= max), " <>
               "got: #{inspect(value)}"
     end
-  end
-
-  defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_binary(value), do: :ok
-  defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
-
-  defp check_opt_spec!({:value_name, value}, cmd_path, opt_name) do
-    raise ArgumentError,
-          location(cmd_path, {:opt, opt_name}) <>
-            "expected :value_name to be a string or nil, got: #{inspect(value)}"
   end
 
   defp check_opt_spec!({:value_parser, value}, _cmd_path, _opt_name)
