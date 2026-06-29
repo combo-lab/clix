@@ -89,24 +89,26 @@ defmodule CLIX.SpecNG do
   @typedoc """
   A brief description shown in help text.
   """
-  @type help :: String.t() | nil
+  @type help :: String.t()
 
   @typedoc """
   The short form of an opt, without the leading dash (e.g. `"v"` for `-v`).
 
   Must be a single character that is not a digit, `-`, `=`, or whitespace.
-  When `nil`, the opt has no short form.
+
+  When unset, the opt has no short form.
   """
-  @type short :: String.t() | nil
+  @type short :: String.t()
 
   @typedoc """
   The long form of an opt, without the leading dashes (e.g. `"verbose"` for `--verbose`).
 
   Must be a string of at least 2 characters, not starting with `-`, and not
   containing `=` or whitespace. Internal hyphens are allowed (e.g. `"config-file"`).
-  When `nil`, the opt has no long form.
+
+  When unset, the opt has no long form.
   """
-  @type long :: String.t() | nil
+  @type long :: String.t()
 
   @typedoc """
   How an arg consumes and stores values.
@@ -128,20 +130,7 @@ defmodule CLIX.SpecNG do
   The final result shape is decideded by `:action` and `:num_args`:
 
     * `:set` — each occurrence replaces the previous value (default).
-        * `{1, 1}` → a scalar; the last occurrence wins.
-            `-x a -x b` → `b`
-        * `{N, N}` (N > 1) → a list of length N; the last occurrence wins.
-            `--env K1 V1 --env K2 V2` → `["K2", "V2"]`
-
-      The shape follows `:num_args`; N = 1 degrading to a scalar is the
-      special case.
-
     * `:append` — each occurrence appends to a list, allowing the arg or
-      opt to be repeated.
-        * `{1, 1}` → a flat list of scalars.
-            `-x a -x b -x c` → `["a", "b", "c"]`
-        * `{N, N}` (N > 1) → a list of lists, each of length N.
-            `--env K1 V1 --env K2 V2` → `[["K1", "V1"], ["K2", "V2"]]`
 
   """
   @type value_action :: :set | :append
@@ -154,8 +143,7 @@ defmodule CLIX.SpecNG do
 
     * `:set_true`  → `true`.
     * `:set_false` → `false`.
-    * `:count`     → a non-negative integer counter, incremented each time
-      the flag appears; `0` when absent.
+    * `:count`     → a non-negative integer counter, incremented each time the flag appears.
 
   """
   @type flag_action :: :set_true | :set_false | :count
@@ -184,9 +172,9 @@ defmodule CLIX.SpecNG do
   @typedoc """
   The value placeholder shown in usage and help text (e.g. `<FILE>`).
 
-  When `nil`, CLIX derives one from the arg/opt name.
+  When unset, CLIX derives one from the arg/opt name.
   """
-  @type value_name :: String.t() | nil
+  @type value_name :: String.t()
 
   @typedoc """
   The parser that parses a raw string value into a typed value.
@@ -206,6 +194,7 @@ defmodule CLIX.SpecNG do
   @type value_parser :: value_parser_canonical() | value_parser_sugar()
   @type value_parser_canonical :: {mod :: module(), fun :: atom()}
   @type value_parser_sugar :: :string | :integer | :float
+  @value_parser_sugars [:string, :integer, :float]
 
   @typedoc """
   Whether an arg or opt must be provided.
@@ -222,12 +211,10 @@ defmodule CLIX.SpecNG do
   @typedoc """
   The fallback value used when the arg or opt is not provided.
 
-  Always a `String.t()`, or `nil` means no default.
-
-  The string goes through `:value_parser` at parse time. For example,
+  The value goes through `:value_parser` at parse time. For example,
   `default_value: "0"` with `value_parser: :integer` yields the integer `0`.
   """
-  @type default_value :: String.t() | nil
+  @type default_value :: String.t()
 
   alias __MODULE__.Types
   alias __MODULE__.Semantics
@@ -256,6 +243,9 @@ defmodule CLIX.SpecNG do
 
   @doc false
   def flag_actions, do: @flag_actions
+
+  @doc false
+  def value_parser_sugars, do: @value_parser_sugars
 
   @doc false
   def location(cmd_path, :cmd) when is_list(cmd_path) do

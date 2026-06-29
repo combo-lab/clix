@@ -1,7 +1,9 @@
 defmodule CLIX.SpecNG.Types do
   @moduledoc false
 
-  import CLIX.SpecNG, only: [location: 2, value_actions: 0, flag_actions: 0]
+  import CLIX.SpecNG, only: [location: 2, value_actions: 0, flag_actions: 0, value_parser_sugars: 0]
+
+  @value_parser_sugars value_parser_sugars()
 
   @doc false
   def check!({cmd_name, cmd_spec}, cmd_path),
@@ -37,12 +39,11 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_cmd_spec!({:help, value}, _cmd_path) when is_binary(value), do: :ok
-  defp check_cmd_spec!({:help, value}, _cmd_path) when is_nil(value), do: :ok
 
   defp check_cmd_spec!({:help, value}, cmd_path) do
     raise ArgumentError,
           location(cmd_path, :cmd) <>
-            "expected :help to be a string or nil, got: #{inspect(value)}"
+            "expected :help to be a string, got: #{inspect(value)}"
   end
 
   defp check_cmd_spec!({:args, value}, _cmd_path) when is_list(value), do: :ok
@@ -101,21 +102,19 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_arg_spec!({:help, value}, _cmd_path, _arg_name) when is_binary(value), do: :ok
-  defp check_arg_spec!({:help, value}, _cmd_path, _arg_name) when is_nil(value), do: :ok
 
   defp check_arg_spec!({:help, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :help to be a string or nil, got: #{inspect(value)}"
+            "expected :help to be a string, got: #{inspect(value)}"
   end
 
   defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_binary(value), do: :ok
-  defp check_arg_spec!({:value_name, value}, _cmd_path, _arg_name) when is_nil(value), do: :ok
 
   defp check_arg_spec!({:value_name, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :value_name to be a string or nil, got: #{inspect(value)}"
+            "expected :value_name to be a string, got: #{inspect(value)}"
   end
 
   @arg_actions value_actions()
@@ -139,8 +138,6 @@ defmodule CLIX.SpecNG.Types do
     end
   end
 
-  @value_parser_sugars [:string, :integer, :float]
-
   defp check_arg_spec!({:value_parser, value}, _cmd_path, _arg_name)
        when value in @value_parser_sugars,
        do: :ok
@@ -152,7 +149,7 @@ defmodule CLIX.SpecNG.Types do
   defp check_arg_spec!({:value_parser, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be :string, :integer, :float or a {mod, fun} tuple, got: #{inspect(value)}"
   end
 
   defp check_arg_spec!({:required, value}, _cmd_path, _arg_name) when is_boolean(value), do: :ok
@@ -164,12 +161,11 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_arg_spec!({:default_value, value}, _cmd_path, _arg_name) when is_binary(value), do: :ok
-  defp check_arg_spec!({:default_value, value}, _cmd_path, _arg_name) when is_nil(value), do: :ok
 
   defp check_arg_spec!({:default_value, value}, cmd_path, arg_name) do
     raise ArgumentError,
           location(cmd_path, {:arg, arg_name}) <>
-            "expected :default_value to be a string or nil, got: #{inspect(value)}"
+            "expected :default_value to be a string, got: #{inspect(value)}"
   end
 
   defp check_arg_spec!({field, value}, cmd_path, arg_name) do
@@ -218,15 +214,12 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_opt_spec!({:help, value}, _cmd_path, _opt_name) when is_binary(value), do: :ok
-  defp check_opt_spec!({:help, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
 
   defp check_opt_spec!({:help, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :help to be a string or nil, got: #{inspect(value)}"
+            "expected :help to be a string, got: #{inspect(value)}"
   end
-
-  defp check_opt_spec!({:short, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
 
   defp check_opt_spec!({:short, value}, cmd_path, opt_name) when is_binary(value) and byte_size(value) == 1 do
     valid_char? = not String.match?(value, ~r/^[\d\-=\s]$/)
@@ -243,10 +236,8 @@ defmodule CLIX.SpecNG.Types do
   defp check_opt_spec!({:short, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :short to be a single-character string or nil, got: #{inspect(value)}"
+            "expected :short to be a single-character string, got: #{inspect(value)}"
   end
-
-  defp check_opt_spec!({:long, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
 
   defp check_opt_spec!({:long, value}, cmd_path, opt_name) when is_binary(value) and byte_size(value) >= 2 do
     cond do
@@ -273,16 +264,15 @@ defmodule CLIX.SpecNG.Types do
   defp check_opt_spec!({:long, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :long to be a string of length >= 2 or nil, got: #{inspect(value)}"
+            "expected :long to be a string of length >= 2, got: #{inspect(value)}"
   end
 
   defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_binary(value), do: :ok
-  defp check_opt_spec!({:value_name, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
 
   defp check_opt_spec!({:value_name, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :value_name to be a string or nil, got: #{inspect(value)}"
+            "expected :value_name to be a string, got: #{inspect(value)}"
   end
 
   @opt_actions value_actions() ++ flag_actions()
@@ -317,7 +307,7 @@ defmodule CLIX.SpecNG.Types do
   defp check_opt_spec!({:value_parser, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(value)}"
+            "expected :value_parser to be :string, :integer, :float or a {mod, fun} tuple, got: #{inspect(value)}"
   end
 
   defp check_opt_spec!({:required, value}, _cmd_path, _opt_name) when is_boolean(value), do: :ok
@@ -329,12 +319,11 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_opt_spec!({:default_value, value}, _cmd_path, _opt_name) when is_binary(value), do: :ok
-  defp check_opt_spec!({:default_value, value}, _cmd_path, _opt_name) when is_nil(value), do: :ok
 
   defp check_opt_spec!({:default_value, value}, cmd_path, opt_name) do
     raise ArgumentError,
           location(cmd_path, {:opt, opt_name}) <>
-            "expected :default_value to be a string or nil, got: #{inspect(value)}"
+            "expected :default_value to be a string, got: #{inspect(value)}"
   end
 
   defp check_opt_spec!({field, value}, cmd_path, opt_name) do

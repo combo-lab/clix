@@ -84,14 +84,14 @@ defmodule CLIX.SpecNG.TypesTest do
                })
     end
 
-    test ":help must be a string or nil" do
-      for h <- ["...", nil] do
-        assert {_, _} = spec(%{help: h})
-      end
+    test ":help must be a string" do
+      assert {_, _} = spec(%{help: "..."})
 
-      assert_raise ArgumentError,
-                   "under the cmd path [:example] - expected :help to be a string or nil, got: 42",
-                   fn -> spec(%{help: 42}) end
+      for h <- [nil, 42] do
+        assert_raise ArgumentError,
+                     "under the cmd path [:example] - expected :help to be a string, got: #{inspect(h)}",
+                     fn -> spec(%{help: h}) end
+      end
     end
 
     test ":args must be a list" do
@@ -159,18 +159,28 @@ defmodule CLIX.SpecNG.TypesTest do
                  value_name: "FILE",
                  value_parser: :string,
                  required: true,
-                 default_value: nil
+                 default_value: "src.txt"
                })
     end
 
-    test ":help must be a string or nil" do
-      for h <- ["...", nil] do
-        assert {_, _} = arg(%{help: h})
-      end
+    test ":help must be a string" do
+      assert {_, _} = arg(%{help: "..."})
 
-      assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :help to be a string or nil, got: 42",
-                   fn -> arg(%{help: 42}) end
+      for h <- [nil, 42] do
+        assert_raise ArgumentError,
+                     "arg :file under the cmd path [:example] - expected :help to be a string, got: #{inspect(h)}",
+                     fn -> arg(%{help: h}) end
+      end
+    end
+
+    test ":value_name must be a string" do
+      assert {_, _} = arg(%{value_name: "..."})
+
+      for vn <- [nil, 42] do
+        assert_raise ArgumentError,
+                     "arg :file under the cmd path [:example] - expected :value_name to be a string, got: #{inspect(vn)}",
+                     fn -> arg(%{value_name: vn}) end
+      end
     end
 
     test ":action must be one of [:set, :append]" do
@@ -178,7 +188,7 @@ defmodule CLIX.SpecNG.TypesTest do
         assert {_, _} = arg(%{action: a})
       end
 
-      for a <- [:set_true, :set_false, :count, :unknown] do
+      for a <- [nil, :set_true, :set_false, :count, :unknown] do
         assert_raise ArgumentError,
                      "arg :file under the cmd path [:example] - expected :action to be one of [:set, :append], got: #{inspect(a)}",
                      fn -> arg(%{action: a}) end
@@ -187,22 +197,13 @@ defmodule CLIX.SpecNG.TypesTest do
 
     # The :num_args field gets its own separate describe block.
 
-    test ":value_name must be a string or nil" do
-      for vn <- ["...", nil] do
-        assert {_, _} = arg(%{value_name: vn})
-      end
-
-      assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :value_name to be a string or nil, got: 42",
-                   fn -> arg(%{value_name: 42}) end
-    end
-
     test ":value_parser accepts sugar and canonical forms" do
       for vp <- [:string, :integer, :float, {CLIX.ValueParser, :integer}] do
         assert {_, _} = arg(%{value_parser: vp})
       end
 
       for vp <- [
+            nil,
             :boolean,
             :unknown,
             {MyMod},
@@ -211,7 +212,7 @@ defmodule CLIX.SpecNG.TypesTest do
             {MyMod, []}
           ] do
         assert_raise ArgumentError,
-                     "arg :file under the cmd path [:example] - expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(vp)}",
+                     "arg :file under the cmd path [:example] - expected :value_parser to be :string, :integer, :float or a {mod, fun} tuple, got: #{inspect(vp)}",
                      fn -> arg(%{value_parser: vp}) end
       end
     end
@@ -221,21 +222,19 @@ defmodule CLIX.SpecNG.TypesTest do
         assert {_, _} = arg(%{required: r})
       end
 
-      for r <- [0, 1, nil, "true"] do
+      for r <- [nil, 0, 1, "true"] do
         assert_raise ArgumentError,
                      "arg :file under the cmd path [:example] - expected :required to be a boolean, got: #{inspect(r)}",
                      fn -> arg(%{required: r}) end
       end
     end
 
-    test ":default_value must be a string or nil" do
-      for dv <- ["...", nil] do
-        assert {_, _} = arg(%{default_value: dv})
-      end
+    test ":default_value must be a string" do
+      assert {_, _} = arg(%{default_value: "..."})
 
-      for dv <- [42, :atom, [1, 2], %{}] do
+      for dv <- [nil, 42, :atom, [1, 2], %{}] do
         assert_raise ArgumentError,
-                     "arg :file under the cmd path [:example] - expected :default_value to be a string or nil, got: #{inspect(dv)}",
+                     "arg :file under the cmd path [:example] - expected :default_value to be a string, got: #{inspect(dv)}",
                      fn -> arg(%{default_value: dv}) end
       end
     end
@@ -302,7 +301,7 @@ defmodule CLIX.SpecNG.TypesTest do
     end
 
     test "other shapes of data are invalid" do
-      for na <- ["oops", 1.0, {1}, {1, 2, 3}] do
+      for na <- [nil, "oops", 1.0, {1}, {1, 2, 3}] do
         assert_raise ArgumentError,
                      "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
                        "(min >= 0, max >= 1 or :infinity, min <= max), got: #{inspect(na)}",
@@ -339,26 +338,26 @@ defmodule CLIX.SpecNG.TypesTest do
     test "all opt_spec fields are accepted" do
       assert {_, _} =
                opt(%{
-                 help: "verbose level",
-                 short: "v",
-                 long: "verbose",
-                 action: :count,
-                 num_args: 0,
-                 value_name: "VERBOSE",
-                 value_parser: :integer,
+                 help: "running mode",
+                 short: "m",
+                 long: "mode",
+                 action: :set,
+                 num_args: 1,
+                 value_name: "MODE",
+                 value_parser: :string,
                  required: false,
-                 default_value: nil
+                 default_value: "debug"
                })
     end
 
-    test ":help must be a string or nil" do
-      for h <- ["...", nil] do
-        assert {_, _} = arg(%{help: h})
-      end
+    test ":help must be a string" do
+      assert {_, _} = arg(%{help: "..."})
 
-      assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :help to be a string or nil, got: 42",
-                   fn -> opt(%{help: 42}) end
+      for h <- [nil, 42] do
+        assert_raise ArgumentError,
+                     "opt :mode under the cmd path [:example] - expected :help to be a string, got: #{inspect(h)}",
+                     fn -> opt(%{help: h}) end
+      end
     end
 
     # The :short field gets its own separate describe block.
@@ -370,7 +369,7 @@ defmodule CLIX.SpecNG.TypesTest do
         assert {_, _} = opt(%{action: a})
       end
 
-      for a <- [:unknown] do
+      for a <- [nil, :unknown] do
         assert_raise ArgumentError,
                      "opt :mode under the cmd path [:example] - expected :action to be one of [:set, :append, :set_true, :set_false, :count], got: #{inspect(a)}",
                      fn -> opt(%{action: a}) end
@@ -379,14 +378,14 @@ defmodule CLIX.SpecNG.TypesTest do
 
     # The :num_args field gets its own separate describe block.
 
-    test ":value_name must be a string or nil" do
-      for vn <- ["...", nil] do
-        assert {_, _} = opt(%{value_name: vn})
-      end
+    test ":value_name must be a string" do
+      assert {_, _} = opt(%{value_name: "..."})
 
-      assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :value_name to be a string or nil, got: 42",
-                   fn -> opt(%{value_name: 42}) end
+      for vn <- [nil, 42] do
+        assert_raise ArgumentError,
+                     "opt :mode under the cmd path [:example] - expected :value_name to be a string, got: #{inspect(vn)}",
+                     fn -> opt(%{value_name: vn}) end
+      end
     end
 
     test ":value_parser accepts sugar and canonical forms" do
@@ -394,7 +393,8 @@ defmodule CLIX.SpecNG.TypesTest do
         assert {_, _} = opt(%{value_parser: vp})
       end
 
-      for bad <- [
+      for vp <- [
+            nil,
             :boolean,
             :unknown,
             {MyMod},
@@ -403,8 +403,8 @@ defmodule CLIX.SpecNG.TypesTest do
             {MyMod, []}
           ] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :value_parser to be :string, :integer, :float, or a {mod, fun} tuple, got: #{inspect(bad)}",
-                     fn -> opt(%{value_parser: bad}) end
+                     "opt :mode under the cmd path [:example] - expected :value_parser to be :string, :integer, :float or a {mod, fun} tuple, got: #{inspect(vp)}",
+                     fn -> opt(%{value_parser: vp}) end
       end
     end
 
@@ -413,21 +413,19 @@ defmodule CLIX.SpecNG.TypesTest do
         assert {_, _} = opt(%{required: r})
       end
 
-      for r <- [0, 1, nil, "true"] do
+      for r <- [nil, 0, 1, "true"] do
         assert_raise ArgumentError,
                      "opt :mode under the cmd path [:example] - expected :required to be a boolean, got: #{inspect(r)}",
                      fn -> opt(%{required: r}) end
       end
     end
 
-    test ":default_value must be a string or nil" do
-      for dv <- ["...", nil] do
-        assert {_, _} = opt(%{default_value: dv})
-      end
+    test ":default_value must be a string" do
+      assert {_, _} = opt(%{default_value: "..."})
 
-      for dv <- [42, :atom, [1, 2], %{}] do
+      for dv <- [nil, 42, :atom, [1, 2], %{}] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :default_value to be a string or nil, got: #{inspect(dv)}",
+                     "opt :mode under the cmd path [:example] - expected :default_value to be a string, got: #{inspect(dv)}",
                      fn -> opt(%{default_value: dv}) end
       end
     end
@@ -446,7 +444,7 @@ defmodule CLIX.SpecNG.TypesTest do
 
     test "multi-character string is invalid" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :short to be a single-character string or nil, got: \"mod\"",
+                   "opt :mode under the cmd path [:example] - expected :short to be a single-character string, got: \"mod\"",
                    fn -> opt(%{short: "mod"}) end
     end
 
@@ -459,9 +457,9 @@ defmodule CLIX.SpecNG.TypesTest do
     end
 
     test "non-binary is invalid" do
-      for s <- [?a, :a] do
+      for s <- [nil, ?a, :a] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :short to be a single-character string or nil, got: #{inspect(s)}",
+                     "opt :mode under the cmd path [:example] - expected :short to be a single-character string, got: #{inspect(s)}",
                      fn -> opt(%{short: s}) end
       end
     end
@@ -476,13 +474,13 @@ defmodule CLIX.SpecNG.TypesTest do
 
     test "empty string is invalid (length < 2)" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2 or nil, got: \"\"",
+                   "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2, got: \"\"",
                    fn -> opt(%{long: ""}) end
     end
 
     test "single-character is invalid (length < 2)" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2 or nil, got: \"m\"",
+                   "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2, got: \"m\"",
                    fn -> opt(%{long: "m"}) end
     end
 
@@ -511,9 +509,9 @@ defmodule CLIX.SpecNG.TypesTest do
     end
 
     test "non-binary is invalid" do
-      for l <- [42, :mode] do
+      for l <- [nil, 42, :mode] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2 or nil, got: #{inspect(l)}",
+                     "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2, got: #{inspect(l)}",
                      fn -> opt(%{long: l}) end
       end
     end
@@ -560,7 +558,7 @@ defmodule CLIX.SpecNG.TypesTest do
     end
 
     test "other shapes of data are invalid" do
-      for na <- ["oops", 1.0, {1}, {1, 2, 3}] do
+      for na <- [nil, "oops", 1.0, {1}, {1, 2, 3}] do
         assert_raise ArgumentError,
                      "opt :mode under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
                        "(min >= 0, max >= 0 or :infinity, min <= max), got: #{inspect(na)}",
@@ -572,13 +570,13 @@ defmodule CLIX.SpecNG.TypesTest do
   describe "nested cmds -" do
     test "nested cmds are validated" do
       assert_raise ArgumentError,
-                   "under the cmd path [:example, :cmd1] - expected :help to be a string or nil, got: 42",
+                   "under the cmd path [:example, :cmd1] - expected :help to be a string, got: 42",
                    fn -> spec(%{cmds: [cmd1: %{help: 42}]}) end
     end
 
     test "deeply nested cmds are validated" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example, :cmd1, :cmd2] - expected :help to be a string or nil, got: 42",
+                   "arg :file under the cmd path [:example, :cmd1, :cmd2] - expected :help to be a string, got: 42",
                    fn ->
                      spec(%{cmds: [cmd1: %{cmds: [cmd2: %{args: [file: %{help: 42}]}]}]})
                    end
@@ -586,13 +584,13 @@ defmodule CLIX.SpecNG.TypesTest do
 
     test "nested cmds' args are validated" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example, :cmd1] - expected :help to be a string or nil, got: 42",
+                   "arg :file under the cmd path [:example, :cmd1] - expected :help to be a string, got: 42",
                    fn -> spec(%{cmds: [cmd1: %{args: [file: %{help: 42}]}]}) end
     end
 
     test "nested cmds' opts are validated" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example, :cmd1] - expected :help to be a string or nil, got: 42",
+                   "opt :mode under the cmd path [:example, :cmd1] - expected :help to be a string, got: 42",
                    fn -> spec(%{cmds: [cmd1: %{opts: [mode: %{help: 42}]}]}) end
     end
   end
