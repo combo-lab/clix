@@ -304,8 +304,10 @@ defmodule CLIX.SpecNG.CheckFormatTest do
   end
 
   describe "opt pair guards -" do
-    test "empty opt_spec is accepted" do
-      assert {_, _} = spec(%{opts: [mode: %{}]})
+    test "empty opt_spec without short or long is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :short or :long to be set",
+                   fn -> spec(%{opts: [mode: %{}]}) end
     end
 
     test "opt_name must be an atom" do
@@ -334,8 +336,8 @@ defmodule CLIX.SpecNG.CheckFormatTest do
                  help: "verbose level",
                  short: "v",
                  long: "verbose",
-                 action: :count,
-                 num_args: 0,
+                 action: :set,
+                 num_args: {1, 1},
                  value_name: "VERBOSE",
                  value_parser: :integer,
                  required: false,

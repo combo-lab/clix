@@ -638,26 +638,202 @@ defmodule CLIX.SpecNG do
   ## Checking the semantics of data
   # cs_ is the short of check_semantics_.
 
-  defp cs_cmd_pair!({cmd_name, cmd_spec}, _cmd_path) do
+  defp cs_cmd_pair!({cmd_name, cmd_spec}, cmd_path) do
+    cmd_path = [cmd_name | cmd_path]
+
+    cs_unique_names!(cmd_spec.args, :arg, cmd_path)
+    cs_unique_names!(cmd_spec.opts, :opt, cmd_path)
+    cs_unique_names!(cmd_spec.cmds, :cmd, cmd_path)
+
+    cs_at_most_one_unbounded_arg!(cmd_spec.args, cmd_path)
+    cs_unbounded_arg_is_last!(cmd_spec.args, cmd_path)
+
+    cs_unique_opt_attr!(cmd_spec.opts, :short, cmd_path)
+    cs_unique_opt_attr!(cmd_spec.opts, :long, cmd_path)
+
+    Enum.each(children(cmd_spec, :args), &cs_arg_pair!(&1, cmd_path))
+    Enum.each(children(cmd_spec, :opts), &cs_opt_pair!(&1, cmd_path))
+    Enum.each(children(cmd_spec, :cmds), &cs_cmd_pair!(&1, cmd_path))
+
     {cmd_name, cmd_spec}
   end
 
-  ## Unwrapping data
+  defp children(spec, key), do: untag_value(spec[key])
 
-  defp unwrap_pair({name, spec}), do: {name, unwrap_spec(spec)}
+  defp cs_unique_names!(wrapped_pairs, kind, cmd_path) do
+    pairs = untag_value(wrapped_pairs)
 
-  defp unwrap_spec(wrapped) do
-    Map.new(wrapped, fn {k, v} -> {k, unwrap_value(v)} end)
+    Enum.reduce(pairs, MapSet.new(), fn {name, _}, seen ->
+      if MapSet.member?(seen, name) do
+        raise ArgumentError,
+              location(cmd_path, :cmd) <>
+                "duplicate #{kind} name #{inspect(name)}"
+      else
+        MapSet.put(seen, name)
+      end
+    end)
   end
 
-  defp unwrap_value({:user, v}), do: unwrap_inner(v)
-  defp unwrap_value({:auto, v}), do: unwrap_inner(v)
+  defp cs_unique_opt_attr!(wrapped_opts, attr, cmd_path) do
+    opts = untag_value(wrapped_opts)
 
-  defp unwrap_inner(children) when is_list(children) do
-    Enum.map(children, &unwrap_pair/1)
+    Enum.reduce(opts, %{}, fn {opt_name, opt_spec}, seen ->
+      case opt_spec[attr] do
+        {:user, value} when value != nil ->
+          case Map.fetch(seen, value) do
+            {:ok, prev_opt_name} ->
+              raise ArgumentError,
+                    location(cmd_path, :cmd) <>
+                      "duplicate #{attr} #{inspect(value)} between " <>
+                      "#{inspect(prev_opt_name)} and #{inspect(opt_name)}"
+
+            :error ->
+              Map.put(seen, value, opt_name)
+          end
+
+        _ ->
+          seen
+      end
+    end)
   end
 
-  defp unwrap_inner(v), do: v
+  defp cs_at_most_one_unbounded_arg!(wrapped_args, cmd_path) do
+    args = untag_value(wrapped_args)
+    unbounded = Enum.filter(args, fn {_, spec} -> unbounded?(spec) end)
+
+    if length(unbounded) > 1 do
+      [{first_name, _}, {second_name, _} | _] = unbounded
+
+      raise ArgumentError,
+            location(cmd_path, :cmd) <>
+              "unbounded args #{inspect(first_name)} and #{inspect(second_name)} - at most one is allowed"
+    end
+  end
+
+  defp cs_unbounded_arg_is_last!(wrapped_args, cmd_path) do
+    args = untag_value(wrapped_args)
+
+    if length(args) > 1 do
+      unbounded = Enum.filter(args, fn {_, spec} -> unbounded?(spec) end)
+
+      if not Enum.empty?(unbounded) do
+        {_last_name, last_spec} = List.last(args)
+
+        if not unbounded?(last_spec) do
+          [{name, _}] = unbounded
+
+          raise ArgumentError,
+                location(cmd_path, :cmd) <>
+                  "unbounded arg #{inspect(name)} must be the last arg"
+        end
+      end
+    end
+  end
+
+  defp unbounded?(wrapped_spec) do
+    case wrapped_spec.num_args do
+      {:user, {_, :infinity}} -> true
+      {:user, n} when is_integer(n) -> false
+      {:user, {_, _}} -> false
+      {:auto, _} -> false
+    end
+  end
+
+  defp cs_arg_pair!({arg_name, arg_spec}, cmd_path) do
+    cs_default_required_conflict!(arg_spec, arg_name, cmd_path, :arg)
+    {arg_name, arg_spec}
+  end
+
+  defp cs_opt_pair!({opt_name, opt_spec}, cmd_path) do
+    cs_opt_has_short_or_long!(opt_spec, opt_name, cmd_path)
+    cs_default_required_conflict!(opt_spec, opt_name, cmd_path, :opt)
+    cs_flag_action_conflicts!(opt_spec, opt_name, cmd_path)
+    {opt_name, opt_spec}
+  end
+
+  defp cs_opt_has_short_or_long!(opt_spec, opt_name, cmd_path) do
+    effective_short = untag_value(opt_spec.short)
+    effective_long = untag_value(opt_spec.long)
+
+    if effective_short == nil and effective_long == nil do
+      raise ArgumentError,
+            location(cmd_path, {:opt, opt_name}) <>
+              "expected :short or :long to be set"
+    end
+  end
+
+  defp cs_default_required_conflict!(spec, name, cmd_path, kind) do
+    case {spec.required, spec.default_value} do
+      {{:user, true}, {:user, dv}} when dv != nil ->
+        raise ArgumentError,
+              location(cmd_path, {kind, name}) <>
+                ":default_value conflicts with :required: true"
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp cs_flag_action_conflicts!(opt_spec, opt_name, cmd_path) do
+    case opt_spec.action do
+      {:user, action} when action in @flag_actions ->
+        cs_flag_num_args_conflict!(opt_spec, action, opt_name, cmd_path)
+        cs_flag_default_value_conflict!(opt_spec, action, opt_name, cmd_path)
+        cs_flag_value_parser_conflict!(opt_spec, action, opt_name, cmd_path)
+        cs_flag_value_name_conflict!(opt_spec, action, opt_name, cmd_path)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp cs_flag_num_args_conflict!(opt_spec, action, opt_name, cmd_path) do
+    case opt_spec.num_args do
+      {:user, n} when n != 0 and n != {0, 0} ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "flag action #{inspect(action)} conflicts with num_args: #{inspect(n)}"
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp cs_flag_default_value_conflict!(opt_spec, action, opt_name, cmd_path) do
+    case opt_spec.default_value do
+      {:user, dv} when dv != nil ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "flag action #{inspect(action)} conflicts with default_value: #{inspect(dv)}"
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp cs_flag_value_parser_conflict!(opt_spec, action, opt_name, cmd_path) do
+    case opt_spec.value_parser do
+      {:user, _} ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "flag action #{inspect(action)} conflicts with value_parser"
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp cs_flag_value_name_conflict!(opt_spec, action, opt_name, cmd_path) do
+    case opt_spec.value_name do
+      {:user, vn} when vn != nil ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "flag action #{inspect(action)} conflicts with value_name: #{inspect(vn)}"
+
+      _ ->
+        :ok
+    end
+  end
 
   ## Normalizing data
 
@@ -726,6 +902,21 @@ defmodule CLIX.SpecNG do
     Map.new(map, fn {k, v} -> {k, {tag, v}} end)
   end
 
-  defp unwrap_tag({:auto, v}), do: v
-  defp unwrap_tag({:user, v}), do: v
+  defp unwrap_pair({name, spec}), do: {name, unwrap_spec(spec)}
+
+  defp unwrap_spec(wrapped) do
+    Map.new(wrapped, fn {k, v} -> {k, unwrap_value(v)} end)
+  end
+
+  defp unwrap_value({:user, v}), do: unwrap_inner(v)
+  defp unwrap_value({:auto, v}), do: unwrap_inner(v)
+
+  defp untag_value({:user, v}), do: v
+  defp untag_value({:auto, v}), do: v
+
+  defp unwrap_inner(children) when is_list(children) do
+    Enum.map(children, &unwrap_pair/1)
+  end
+
+  defp unwrap_inner(v), do: v
 end
