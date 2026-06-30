@@ -158,12 +158,6 @@ defmodule CLIX.SpecNG do
     * `n` (sugar) — equivalent to `{n, n}` (exactly `n` values).
 
   `max` may be `:infinity` for unbounded consumption.
-
-  The acceptable range of `min`/`max` depends on the context:
-
-    * arg: `min >= 0`, `max >= 1`, `min <= max`
-    * opt: `min >= 0`, `max >= 0`, `min <= max`
-
   """
   @type num_args :: num_args_canonical() | num_args_sugar()
   @type num_args_canonical :: {non_neg_integer(), non_neg_integer() | :infinity}
