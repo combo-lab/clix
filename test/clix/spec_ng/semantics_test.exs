@@ -27,7 +27,7 @@ defmodule CLIX.SpecNG.SemanticsTest do
     test "duplicate arg names are rejected" do
       assert_raise ArgumentError,
                    "under the cmd path [:example] - duplicate arg name :file",
-                   fn -> spec(%{args: [file: %{}, file: %{num_args: {0, 1}}]}) end
+                   fn -> spec(%{args: [file: %{}, file: %{num_values: {0, 1}}]}) end
     end
 
     test "duplicate opt names are rejected" do
@@ -90,22 +90,22 @@ defmodule CLIX.SpecNG.SemanticsTest do
 
   describe "structural constraints - unbounded args -" do
     test "single unbounded arg is OK" do
-      assert {_, _} = spec(%{args: [a: %{num_args: {1, :infinity}}]})
+      assert {_, _} = spec(%{args: [a: %{num_values: {1, :infinity}}]})
     end
 
     test "bounded args is OK" do
-      assert {_, _} = spec(%{args: [a: %{num_args: {0, 2}}, b: %{num_args: {0, 3}}]})
+      assert {_, _} = spec(%{args: [a: %{num_values: {0, 2}}, b: %{num_values: {0, 3}}]})
     end
 
     test "one unbounded arg at the end is OK" do
-      assert {_, _} = spec(%{args: [a: %{num_args: 1}, b: %{num_args: {1, :infinity}}]})
+      assert {_, _} = spec(%{args: [a: %{num_values: 1}, b: %{num_values: {1, :infinity}}]})
     end
 
     test "must be at most one" do
       assert_raise ArgumentError,
                    "under the cmd path [:example] - unbounded args :a and :b - at most one is allowed",
                    fn ->
-                     spec(%{args: [a: %{num_args: {1, :infinity}}, b: %{num_args: {1, :infinity}}]})
+                     spec(%{args: [a: %{num_values: {1, :infinity}}, b: %{num_values: {1, :infinity}}]})
                    end
 
       assert_raise ArgumentError,
@@ -113,9 +113,9 @@ defmodule CLIX.SpecNG.SemanticsTest do
                    fn ->
                      spec(%{
                        args: [
-                         a: %{num_args: {1, :infinity}},
-                         b: %{num_args: {1, :infinity}},
-                         c: %{num_args: {0, :infinity}}
+                         a: %{num_values: {1, :infinity}},
+                         b: %{num_values: {1, :infinity}},
+                         c: %{num_values: {0, :infinity}}
                        ]
                      })
                    end
@@ -125,13 +125,13 @@ defmodule CLIX.SpecNG.SemanticsTest do
       assert_raise ArgumentError,
                    "under the cmd path [:example] - unbounded arg :a must be the last arg",
                    fn ->
-                     spec(%{args: [a: %{num_args: {1, :infinity}}, b: %{num_args: 1}]})
+                     spec(%{args: [a: %{num_values: {1, :infinity}}, b: %{num_values: 1}]})
                    end
     end
   end
 
   describe "field conflicts - arg -" do
-    test "num_args: <set> (zero) is rejected" do
+    test "num_values: <set> (zero) is rejected" do
       # checked by types checker
     end
 
@@ -191,21 +191,21 @@ defmodule CLIX.SpecNG.SemanticsTest do
       end
     end
 
-    test "flag action + num_args: <set> (not zero) is rejected" do
+    test "flag action + num_values: <set> (not zero) is rejected" do
       for a <- [:set_true, :set_false, :count],
           n <- [1, 2, {1, 1}, {0, 1}, {1, :infinity}] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - num_args: #{inspect(n)} conflicts with action: #{inspect(a)}",
-                     fn -> opt(%{action: a, num_args: n}) end
+                     "opt :mode under the cmd path [:example] - num_values: #{inspect(n)} conflicts with action: #{inspect(a)}",
+                     fn -> opt(%{action: a, num_values: n}) end
       end
     end
 
-    test "flag action + num_args: <set> (zero) is accepted" do
-      assert {_, _} = opt(%{action: :count, num_args: 0})
-      assert {_, _} = opt(%{action: :count, num_args: {0, 0}})
+    test "flag action + num_values: <set> (zero) is accepted" do
+      assert {_, _} = opt(%{action: :count, num_values: 0})
+      assert {_, _} = opt(%{action: :count, num_values: {0, 0}})
     end
 
-    test "flag action + num_args: <unset> is accepted" do
+    test "flag action + num_values: <unset> is accepted" do
       for a <- [:set_true, :set_false, :count] do
         assert {_, _} = opt(%{action: a})
       end
@@ -233,9 +233,9 @@ defmodule CLIX.SpecNG.SemanticsTest do
       end
     end
 
-    test "value action + num_args: <set> is OK" do
-      assert {_, _} = opt(%{action: :set, num_args: 2})
-      assert {_, _} = opt(%{action: :append, num_args: {1, :infinity}})
+    test "value action + num_values: <set> is OK" do
+      assert {_, _} = opt(%{action: :set, num_values: 2})
+      assert {_, _} = opt(%{action: :append, num_values: {1, :infinity}})
     end
 
     test "value action + value_parser: <set> + default_value: <set> is accepted" do
@@ -250,7 +250,7 @@ defmodule CLIX.SpecNG.SemanticsTest do
       assert_raise ArgumentError,
                    "under the cmd path [:example, :subcmd] - duplicate arg name :file",
                    fn ->
-                     spec(%{cmds: [subcmd: %{args: [file: %{}, file: %{num_args: {0, 1}}]}]})
+                     spec(%{cmds: [subcmd: %{args: [file: %{}, file: %{num_values: {0, 1}}]}]})
                    end
     end
 
@@ -269,11 +269,128 @@ defmodule CLIX.SpecNG.SemanticsTest do
     end
   end
 
+  describe "value action + num_values -" do
+    test "value action + num_values: 0 is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - value action :set conflicts with num_values: 0 (max must be >= 1)",
+                   fn -> opt(%{action: :set, num_values: 0}) end
+    end
+
+    test "value action + num_values: {0, 0} is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - value action :set conflicts with num_values: {0, 0} (max must be >= 1)",
+                   fn -> opt(%{action: :set, num_values: {0, 0}}) end
+    end
+
+    test "append action + num_values: {0, 0} is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - value action :append conflicts with num_values: {0, 0} (max must be >= 1)",
+                   fn -> opt(%{action: :append, num_values: {0, 0}}) end
+    end
+
+    test "value action + num_values: {0, 1} (optional value) is accepted" do
+      assert {_, _} = opt(%{action: :set, num_values: {0, 1}})
+      assert {_, _} = opt(%{action: :append, num_values: {0, 1}})
+    end
+
+    test "value action + num_values: 1 is accepted" do
+      assert {_, _} = opt(%{action: :set, num_values: 1})
+      assert {_, _} = opt(%{action: :append, num_values: 1})
+    end
+
+    test "default action (:set) + num_values: 0 is rejected" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - value action :set conflicts with num_values: 0 (max must be >= 1)",
+                   fn -> opt(%{num_values: 0}) end
+    end
+  end
+
+  describe "flag action + required -" do
+    test "flag action + required: true is rejected" do
+      for a <- [:set_true, :set_false, :count] do
+        assert_raise ArgumentError,
+                     "opt :mode under the cmd path [:example] - required: true conflicts with action #{inspect(a)}",
+                     fn -> opt(%{action: a, required: true}) end
+      end
+    end
+
+    test "flag action without required (auto) is accepted" do
+      for a <- [:set_true, :set_false, :count] do
+        assert {_, _} = opt(%{action: a})
+      end
+    end
+
+    test "flag action + required: false is accepted" do
+      for a <- [:set_true, :set_false, :count] do
+        assert {_, _} = opt(%{action: a, required: false})
+      end
+    end
+  end
+
+  describe "arg num_values min=0 + required -" do
+    test "num_values: {0, 1} + required: true is rejected" do
+      assert_raise ArgumentError,
+                   "arg :file under the cmd path [:example] - required: true conflicts with num_values: {0, 1} " <>
+                     "({0, 1} implies optional arg)",
+                   fn -> arg(%{num_values: {0, 1}, required: true}) end
+    end
+
+    test "num_values: {0, 1} + required: false is accepted" do
+      assert {_, _} = arg(%{num_values: {0, 1}, required: false})
+    end
+
+    test "num_values: {0, 1} without required (auto) is accepted by semantics" do
+      assert {_, _} = arg(%{num_values: {0, 1}})
+    end
+
+    test "num_values: {1, 1} + required: true is accepted" do
+      assert {_, _} = arg(%{num_values: {1, 1}, required: true})
+    end
+  end
+
+  describe "default_value parseability -" do
+    test "arg default_value unparseable by sugar value_parser is rejected" do
+      assert_raise ArgumentError,
+                   ~r/^arg :file under the cmd path \[:example\] - :default_value \"abc\" cannot be parsed by :value_parser \{CLIX\.ValueParser, :integer\}:/,
+                   fn -> arg(%{value_parser: :integer, default_value: "abc"}) end
+    end
+
+    test "opt default_value unparseable by sugar value_parser is rejected" do
+      assert_raise ArgumentError,
+                   ~r/^opt :mode under the cmd path \[:example\] - :default_value \"abc\" cannot be parsed by :value_parser \{CLIX\.ValueParser, :integer\}:/,
+                   fn -> opt(%{value_parser: :integer, default_value: "abc"}) end
+    end
+
+    test "arg default_value unparseable by canonical value_parser is rejected" do
+      assert_raise ArgumentError,
+                   ~r/^arg :file under the cmd path \[:example\] - :default_value \"abc\" cannot be parsed by :value_parser \{CLIX\.ValueParser, :integer\}:/,
+                   fn -> arg(%{value_parser: {CLIX.ValueParser, :integer}, default_value: "abc"}) end
+    end
+
+    test "arg default_value parseable by value_parser is accepted" do
+      assert {_, _} = arg(%{value_parser: :integer, default_value: "42"})
+    end
+
+    test "arg default_value with auto :string parser is accepted" do
+      assert {_, _} = arg(%{default_value: "anything works"})
+    end
+
+    test "unparseable float default_value is rejected" do
+      assert_raise ArgumentError,
+                   ~r/cannot be parsed by :value_parser \{CLIX\.ValueParser, :float\}:/,
+                   fn -> arg(%{value_parser: :float, default_value: "not-a-number"}) end
+    end
+
+    test "parseable float default_value is accepted" do
+      assert {_, _} = arg(%{value_parser: :float, default_value: "3.14"})
+    end
+  end
+
   describe "positive cases -" do
     test "spec with all kinds of children is accepted" do
       assert {_, _} =
                spec(%{
-                 args: [src: %{num_args: {1, :infinity}}],
+                 args: [src: %{num_values: {1, :infinity}}],
                  opts: [verbose: %{short: "v", action: :count}, output: %{long: "output", value_parser: :string}],
                  cmds: [setup: %{}, teardown: %{}]
                })

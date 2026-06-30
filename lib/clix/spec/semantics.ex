@@ -43,7 +43,7 @@ defmodule CLIX.SpecNG.Semantics do
       help: nil,
       value_name: nil,
       action: :set,
-      num_args: {1, 1},
+      num_values: {1, 1},
       value_parser: :string,
       required: nil,
       default_value: nil
@@ -60,7 +60,7 @@ defmodule CLIX.SpecNG.Semantics do
       long: nil,
       value_name: nil,
       action: :set,
-      num_args: {1, 1},
+      num_values: {1, 1},
       value_parser: :string,
       required: nil,
       default_value: nil
@@ -103,20 +103,20 @@ defmodule CLIX.SpecNG.Semantics do
   end
 
   # action: :set,
-  # num_args: {1, 1},
+  # num_values: {1, 1},
   # value_parser: :string,
   # required: nil,
   # default_value: nil
 
   # action: :set,
-  # num_args: {1, 1},
+  # num_values: {1, 1},
   # value_parser: :string,
   # required: nil,
   # default_value: nil
 
   defp check_arg_pair!({arg_name, arg_spec}, cmd_path) do
-    check_conflict_between_action_and_num_args!(:arg, {arg_name, arg_spec}, cmd_path)
-    check_conflict_between_num_args_and_required!(:arg, {arg_name, arg_spec}, cmd_path)
+    check_conflict_between_action_and_num_values!(:arg, {arg_name, arg_spec}, cmd_path)
+    check_conflict_between_num_values_and_required!(:arg, {arg_name, arg_spec}, cmd_path)
     check_conflict_between_required_and_default_value!(:arg, {arg_name, arg_spec}, cmd_path)
     check_default_value_parseability!(:arg, {arg_name, arg_spec}, cmd_path)
     :ok
@@ -124,9 +124,9 @@ defmodule CLIX.SpecNG.Semantics do
 
   defp check_opt_pair!({opt_name, opt_spec}, cmd_path) do
     check_opt_has_short_or_long!({opt_name, opt_spec}, cmd_path)
-    check_conflict_between_action_and_num_args!(:opt, {opt_name, opt_spec}, cmd_path)
+    check_conflict_between_action_and_num_values!(:opt, {opt_name, opt_spec}, cmd_path)
     check_conflict_between_flag_action_and_others!({opt_name, opt_spec}, cmd_path)
-    check_conflict_between_num_args_and_required!(:opt, {opt_name, opt_spec}, cmd_path)
+    check_conflict_between_num_values_and_required!(:opt, {opt_name, opt_spec}, cmd_path)
     check_conflict_between_required_and_default_value!(:opt, {opt_name, opt_spec}, cmd_path)
     check_default_value_parseability!(:opt, {opt_name, opt_spec}, cmd_path)
     :ok
@@ -213,84 +213,84 @@ defmodule CLIX.SpecNG.Semantics do
   end
 
   defp unbounded_arg?(wrapped_spec) do
-    case wrapped_spec.num_args do
+    case wrapped_spec.num_values do
       {:user, {_, :infinity}} -> true
       {:user, _} -> false
       {:auto, _} -> false
     end
   end
 
-  defp check_conflict_between_action_and_num_args!(:arg = kind, {name, spec}, cmd_path) do
-    case {spec.action, spec.num_args} do
-      {{_, action}, {:user, 0 = num_args}} when action in @value_actions ->
+  defp check_conflict_between_action_and_num_values!(:arg = kind, {name, spec}, cmd_path) do
+    case {spec.action, spec.num_values} do
+      {{_, action}, {:user, 0 = num_values}} when action in @value_actions ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action #{inspect(action)}"
 
-      {{_, action}, {:user, {min, max} = num_args}} when action in @value_actions and (min == 0 or max == 0) ->
+      {{_, action}, {:user, {_, max} = num_values}} when action in @value_actions and max == 0 ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action #{inspect(action)}"
 
       _ ->
         :ok
     end
   end
 
-  defp check_conflict_between_action_and_num_args!(:opt = kind, {name, spec}, cmd_path) do
-    case {spec.action, spec.num_args} do
-      {{_, action}, {:user, 0 = num_args}} when action in @value_actions ->
+  defp check_conflict_between_action_and_num_values!(:opt = kind, {name, spec}, cmd_path) do
+    case {spec.action, spec.num_values} do
+      {{_, action}, {:user, 0 = num_values}} when action in @value_actions ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action #{inspect(action)}"
 
-      {{_, action}, {:user, {min, max} = num_args}} when action in @value_actions and (min == 0 or max == 0) ->
+      {{_, action}, {:user, {min, max} = num_values}} when action in @value_actions and (min == 0 or max == 0) ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action #{inspect(action)}"
 
-      {{_, action}, {:user, num_args}} when action in @flag_actions and num_args not in [0, {0, 0}] ->
+      {{_, action}, {:user, num_values}} when action in @flag_actions and num_values not in [0, {0, 0}] ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action #{inspect(action)}"
 
       _ ->
         :ok
     end
   end
 
-  defp check_conflict_between_num_args_and_required!(:arg = kind, {name, spec}, cmd_path) do
-    case {spec.num_args, spec.required} do
-      {{:user, 0 = num_args}, {:user, true}} ->
+  defp check_conflict_between_num_values_and_required!(:arg = kind, {name, spec}, cmd_path) do
+    case {spec.num_values, spec.required} do
+      {{:user, 0 = num_values}, {:user, true}} ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "required: true conflicts with num_args: #{inspect(num_args)} " <>
-                "(#{inspect(num_args)} implies required: false)"
+                "required: true conflicts with num_values: #{inspect(num_values)} " <>
+                "(#{inspect(num_values)} implies required: false)"
 
-      {{:user, {0, _} = num_args}, {:user, true}} ->
+      {{:user, {0, _} = num_values}, {:user, true}} ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "required: true conflicts with num_args: #{inspect(num_args)} " <>
-                "(#{inspect(num_args)} implies required: false)"
+                "required: true conflicts with num_values: #{inspect(num_values)} " <>
+                "(#{inspect(num_values)} implies required: false)"
 
-      {{:user, num_args}, {:user, false}} when is_integer(num_args) and num_args > 1 ->
+      {{:user, num_values}, {:user, false}} when is_integer(num_values) and num_values > 1 ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "required: false conflicts with num_args: #{inspect(num_args)} " <>
-                "(#{inspect(num_args)} implies required: true)"
+                "required: false conflicts with num_values: #{inspect(num_values)} " <>
+                "(#{inspect(num_values)} implies required: true)"
 
-      {{:user, {min, _} = num_args}, {:user, false}} when min > 1 ->
+      {{:user, {min, _} = num_values}, {:user, false}} when min > 1 ->
         raise ArgumentError,
               location(cmd_path, {kind, name}) <>
-                "required: false conflicts with num_args: #{inspect(num_args)} " <>
-                "(#{inspect(num_args)} implies required: true)"
+                "required: false conflicts with num_values: #{inspect(num_values)} " <>
+                "(#{inspect(num_values)} implies required: true)"
 
       _ ->
         :ok
     end
   end
 
-  defp check_conflict_between_num_args_and_required!(:opt, {_name, _spec}, _cmd_path), do: :ok
+  defp check_conflict_between_num_values_and_required!(:opt, {_name, _spec}, _cmd_path), do: :ok
 
   defp check_conflict_between_required_and_default_value!(kind, {name, spec}, cmd_path) do
     case {spec.required, spec.default_value} do
@@ -320,7 +320,7 @@ defmodule CLIX.SpecNG.Semantics do
     case opt_spec.action do
       {_, action} when action in @flag_actions ->
         check_conflict_between_flag_action_and_value_name!(action, {opt_name, opt_spec}, cmd_path)
-        check_conflict_between_flag_action_and_num_args!(action, {opt_name, opt_spec}, cmd_path)
+        check_conflict_between_flag_action_and_num_values!(action, {opt_name, opt_spec}, cmd_path)
         check_conflict_between_flag_action_and_value_parser!(action, {opt_name, opt_spec}, cmd_path)
         check_conflict_between_flag_action_and_required!(action, {opt_name, opt_spec}, cmd_path)
         check_conflict_between_flag_action_and_default_value!(action, {opt_name, opt_spec}, cmd_path)
@@ -343,12 +343,12 @@ defmodule CLIX.SpecNG.Semantics do
     end
   end
 
-  defp check_conflict_between_flag_action_and_num_args!(action, {opt_name, opt_spec}, cmd_path) do
-    case opt_spec.num_args do
-      {:user, num_args} when num_args not in [0, {0, 0}] ->
+  defp check_conflict_between_flag_action_and_num_values!(action, {opt_name, opt_spec}, cmd_path) do
+    case opt_spec.num_values do
+      {:user, num_values} when num_values not in [0, {0, 0}] ->
         raise ArgumentError,
               location(cmd_path, {:opt, opt_name}) <>
-                "num_args: #{inspect(num_args)} conflicts with action: #{inspect(action)}"
+                "num_values: #{inspect(num_values)} conflicts with action: #{inspect(action)}"
 
       _ ->
         :ok

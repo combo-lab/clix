@@ -35,10 +35,10 @@ defmodule CLIX.SpecNG do
     * whether values are consumed.
     * how multiple occurrences fold.
 
-  `:num_args` controls how many values are consumed per occurrence.
+  `:num_values` controls how many values are consumed per occurrence.
 
   `:value_parser` controls how a raw string value is parsed (bypassed when
-  `:num_args` is `{0, 0}`).
+  `:num_values` is `{0, 0}`).
 
   """
 
@@ -65,7 +65,7 @@ defmodule CLIX.SpecNG do
           optional(:help) => help(),
           optional(:value_name) => value_name(),
           optional(:action) => arg_action(),
-          optional(:num_args) => num_args(),
+          optional(:num_values) => num_values(),
           optional(:value_parser) => value_parser(),
           optional(:required) => required(),
           optional(:default_value) => default_value()
@@ -80,7 +80,7 @@ defmodule CLIX.SpecNG do
           optional(:long) => long(),
           optional(:value_name) => value_name(),
           optional(:action) => opt_action(),
-          optional(:num_args) => num_args(),
+          optional(:num_values) => num_values(),
           optional(:value_parser) => value_parser(),
           optional(:required) => required(),
           optional(:default_value) => default_value()
@@ -127,10 +127,10 @@ defmodule CLIX.SpecNG do
   @typedoc """
   Value actions, which consume one or more values.
 
-  The final result shape is decideded by `:action` and `:num_args`:
+  The final result shape is decideded by `:action` and `:num_values`:
 
     * `:set` — each occurrence replaces the previous value (default).
-    * `:append` — each occurrence appends to a list, allowing the arg or
+    * `:append` — each occurrence appends to a list, allowing the arg or opt to be repeated.
 
   """
   @type value_action :: :set | :append
@@ -159,9 +159,9 @@ defmodule CLIX.SpecNG do
 
   `max` may be `:infinity` for unbounded consumption.
   """
-  @type num_args :: num_args_canonical() | num_args_sugar()
-  @type num_args_canonical :: {non_neg_integer(), non_neg_integer() | :infinity}
-  @type num_args_sugar :: non_neg_integer()
+  @type num_values :: num_values_canonical() | num_values_sugar()
+  @type num_values_canonical :: {non_neg_integer(), non_neg_integer() | :infinity}
+  @type num_values_sugar :: non_neg_integer()
 
   @typedoc """
   The value placeholder shown in usage and help text (e.g. `<FILE>`).

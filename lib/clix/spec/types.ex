@@ -126,13 +126,13 @@ defmodule CLIX.SpecNG.Types do
             "expected :action to be one of #{inspect(@arg_actions)}, got: #{inspect(value)}"
   end
 
-  defp check_arg_spec!({:num_args, value}, cmd_path, arg_name) do
-    if check_num_args(value) do
+  defp check_arg_spec!({:num_values, value}, cmd_path, arg_name) do
+    if check_num_values(value) do
       :ok
     else
       raise ArgumentError,
             location(cmd_path, {:arg, arg_name}) <>
-              "expected :num_args to be a non-negative integer or " <>
+              "expected :num_values to be a non-negative integer or " <>
               "a {min, max} tuple (min >= 0, max >= 0 or :infinity, min <= max), " <>
               "got: #{inspect(value)}"
     end
@@ -270,13 +270,13 @@ defmodule CLIX.SpecNG.Types do
             "expected :action to be one of #{inspect(@opt_actions)}, got: #{inspect(value)}"
   end
 
-  defp check_opt_spec!({:num_args, value}, cmd_path, opt_name) do
-    if check_num_args(value) do
+  defp check_opt_spec!({:num_values, value}, cmd_path, opt_name) do
+    if check_num_values(value) do
       :ok
     else
       raise ArgumentError,
             location(cmd_path, {:opt, opt_name}) <>
-              "expected :num_args to be a non-negative integer or " <>
+              "expected :num_values to be a non-negative integer or " <>
               "a {min, max} tuple (min >= 0, max >= 0 or :infinity, min <= max), " <>
               "got: #{inspect(value)}"
     end
@@ -318,17 +318,17 @@ defmodule CLIX.SpecNG.Types do
             "unknown field #{inspect(field)} with value #{inspect(value)}"
   end
 
-  defp check_num_args(n)
+  defp check_num_values(n)
        when is_integer(n) and n >= 0,
        do: true
 
-  defp check_num_args({min, max})
+  defp check_num_values({min, max})
        when is_integer(min) and min >= 0 and is_integer(max) and max >= 0,
        do: min <= max
 
-  defp check_num_args({min, :infinity})
+  defp check_num_values({min, :infinity})
        when is_integer(min) and min >= 0,
        do: true
 
-  defp check_num_args(_), do: false
+  defp check_num_values(_), do: false
 end

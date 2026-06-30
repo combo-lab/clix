@@ -33,7 +33,7 @@ defmodule CLIX.SpecNG.TypesTest do
                   %{
                     cmds: [
                       sub: %{
-                        args: [file: %{num_args: 1}],
+                        args: [file: %{num_values: 1}],
                         opts: [verbose: %{short: "v", action: :count}],
                         cmds: [app: %{help: "Manages the apps."}]
                       }
@@ -155,7 +155,7 @@ defmodule CLIX.SpecNG.TypesTest do
                arg(%{
                  help: "...",
                  action: :set,
-                 num_args: {1, 1},
+                 num_values: {1, 1},
                  value_name: "FILE",
                  value_parser: :string,
                  required: true,
@@ -195,7 +195,7 @@ defmodule CLIX.SpecNG.TypesTest do
       end
     end
 
-    # The :num_args field gets its own separate describe block.
+    # The :num_values field gets its own separate describe block.
 
     test ":value_parser accepts sugar and canonical forms" do
       for vp <- [:string, :integer, :float, {CLIX.ValueParser, :integer}] do
@@ -246,52 +246,52 @@ defmodule CLIX.SpecNG.TypesTest do
     end
   end
 
-  describe "arg :num_args -" do
+  describe "arg :num_values -" do
     test "integer, exact tuple, range tuple, and :infinity are valid" do
       for na <- [1, 2, 5] do
-        assert {_, _} = arg(%{num_args: na})
+        assert {_, _} = arg(%{num_values: na})
       end
 
       for na <- [{1, 1}, {2, 2}, {5, 5}] do
-        assert {_, _} = arg(%{num_args: na})
+        assert {_, _} = arg(%{num_values: na})
       end
 
       for na <- [{0, 1}, {0, 5}, {2, 4}] do
-        assert {_, _} = arg(%{num_args: na})
+        assert {_, _} = arg(%{num_values: na})
       end
 
       for na <- [{0, :infinity}, {1, :infinity}, {5, :infinity}] do
-        assert {_, _} = arg(%{num_args: na})
+        assert {_, _} = arg(%{num_values: na})
       end
     end
 
     test "tuple {-1, 2} is invalid (min < 0)" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "arg :file under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: {-1, 2}",
-                   fn -> arg(%{num_args: {-1, 2}}) end
+                   fn -> arg(%{num_values: {-1, 2}}) end
     end
 
     test "tuple {3, 1} is invalid (min > max)" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "arg :file under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: {3, 1}",
-                   fn -> arg(%{num_args: {3, 1}}) end
+                   fn -> arg(%{num_values: {3, 1}}) end
     end
 
     test ":infinity alone is invalid" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "arg :file under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: :infinity",
-                   fn -> arg(%{num_args: :infinity}) end
+                   fn -> arg(%{num_values: :infinity}) end
     end
 
     test "other shapes of data are invalid" do
       for na <- [nil, "oops", 1.0, {1}, {1, 2, 3}] do
         assert_raise ArgumentError,
-                     "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                     "arg :file under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                        "(min >= 0, max >= 0 or :infinity, min <= max), got: #{inspect(na)}",
-                     fn -> arg(%{num_args: na}) end
+                     fn -> arg(%{num_values: na}) end
       end
     end
   end
@@ -328,7 +328,7 @@ defmodule CLIX.SpecNG.TypesTest do
                  short: "m",
                  long: "mode",
                  action: :set,
-                 num_args: 1,
+                 num_values: 1,
                  value_name: "MODE",
                  value_parser: :string,
                  required: false,
@@ -362,7 +362,7 @@ defmodule CLIX.SpecNG.TypesTest do
       end
     end
 
-    # The :num_args field gets its own separate describe block.
+    # The :num_values field gets its own separate describe block.
 
     test ":value_name must be a string" do
       assert {_, _} = opt(%{value_name: "..."})
@@ -503,52 +503,52 @@ defmodule CLIX.SpecNG.TypesTest do
     end
   end
 
-  describe "opt :num_args -" do
+  describe "opt :num_values -" do
     test "integer, exact tuple, range tuple, and :infinity are valid" do
       for na <- [0, 1, 2, 5] do
-        assert {_, _} = opt(%{num_args: na})
+        assert {_, _} = opt(%{num_values: na})
       end
 
       for na <- [{0, 0}, {1, 1}, {2, 2}, {5, 5}] do
-        assert {_, _} = opt(%{num_args: na})
+        assert {_, _} = opt(%{num_values: na})
       end
 
       for na <- [{0, 1}, {0, 5}, {2, 4}] do
-        assert {_, _} = opt(%{num_args: na})
+        assert {_, _} = opt(%{num_values: na})
       end
 
       for na <- [{0, :infinity}, {1, :infinity}, {5, :infinity}] do
-        assert {_, _} = opt(%{num_args: na})
+        assert {_, _} = opt(%{num_values: na})
       end
     end
 
     test "tuple {-1, 2} is invalid (min < 0)" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "opt :mode under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: {-1, 2}",
-                   fn -> opt(%{num_args: {-1, 2}}) end
+                   fn -> opt(%{num_values: {-1, 2}}) end
     end
 
     test "tuple {3, 1} is invalid (min > max)" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "opt :mode under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: {3, 1}",
-                   fn -> opt(%{num_args: {3, 1}}) end
+                   fn -> opt(%{num_values: {3, 1}}) end
     end
 
     test ":infinity alone is invalid" do
       assert_raise ArgumentError,
-                   "opt :mode under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                   "opt :mode under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                      "(min >= 0, max >= 0 or :infinity, min <= max), got: :infinity",
-                   fn -> opt(%{num_args: :infinity}) end
+                   fn -> opt(%{num_values: :infinity}) end
     end
 
     test "other shapes of data are invalid" do
       for na <- [nil, "oops", 1.0, {1}, {1, 2, 3}] do
         assert_raise ArgumentError,
-                     "opt :mode under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                     "opt :mode under the cmd path [:example] - expected :num_values to be a non-negative integer or a {min, max} tuple " <>
                        "(min >= 0, max >= 0 or :infinity, min <= max), got: #{inspect(na)}",
-                     fn -> opt(%{num_args: na}) end
+                     fn -> opt(%{num_values: na}) end
       end
     end
   end
