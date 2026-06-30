@@ -26,4 +26,8 @@ defmodule CLIX.ValueParser do
       _ -> {:error, "not a valid float"}
     end
   end
+
+  @doc false
+  def resolve_value_parser(sugar) when sugar in [:string, :integer, :float], do: {__MODULE__, sugar}
+  def resolve_value_parser({mod, fun} = value_parser) when is_atom(mod) and is_atom(fun), do: value_parser
 end
