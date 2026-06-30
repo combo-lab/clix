@@ -127,13 +127,13 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_arg_spec!({:num_args, value}, cmd_path, arg_name) do
-    if check_arg_num_args(value) do
+    if check_num_args(value) do
       :ok
     else
       raise ArgumentError,
             location(cmd_path, {:arg, arg_name}) <>
-              "expected :num_args to be a positive integer or " <>
-              "a {min, max} tuple (min >= 0, max >= 1 or :infinity, min <= max), " <>
+              "expected :num_args to be a non-negative integer or " <>
+              "a {min, max} tuple (min >= 0, max >= 0 or :infinity, min <= max), " <>
               "got: #{inspect(value)}"
     end
   end
@@ -173,20 +173,6 @@ defmodule CLIX.SpecNG.Types do
           location(cmd_path, {:arg, arg_name}) <>
             "unknown field #{inspect(field)} with value #{inspect(value)}"
   end
-
-  defp check_arg_num_args(n)
-       when is_integer(n) and n >= 1,
-       do: true
-
-  defp check_arg_num_args({min, max})
-       when is_integer(min) and min >= 0 and is_integer(max) and max >= 1,
-       do: min <= max
-
-  defp check_arg_num_args({min, :infinity})
-       when is_integer(min) and min >= 0,
-       do: true
-
-  defp check_arg_num_args(_), do: false
 
   defp check_opt_pair!({opt_name, opt_spec}, cmd_path) do
     if not is_atom(opt_name) do
@@ -285,7 +271,7 @@ defmodule CLIX.SpecNG.Types do
   end
 
   defp check_opt_spec!({:num_args, value}, cmd_path, opt_name) do
-    if check_opt_num_args(value) do
+    if check_num_args(value) do
       :ok
     else
       raise ArgumentError,
@@ -332,17 +318,17 @@ defmodule CLIX.SpecNG.Types do
             "unknown field #{inspect(field)} with value #{inspect(value)}"
   end
 
-  defp check_opt_num_args(n)
+  defp check_num_args(n)
        when is_integer(n) and n >= 0,
        do: true
 
-  defp check_opt_num_args({min, max})
+  defp check_num_args({min, max})
        when is_integer(min) and min >= 0 and is_integer(max) and max >= 0,
        do: min <= max
 
-  defp check_opt_num_args({min, :infinity})
+  defp check_num_args({min, :infinity})
        when is_integer(min) and min >= 0,
        do: true
 
-  defp check_opt_num_args(_), do: false
+  defp check_num_args(_), do: false
 end

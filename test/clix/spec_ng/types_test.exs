@@ -267,44 +267,30 @@ defmodule CLIX.SpecNG.TypesTest do
 
     test "tuple {-1, 2} is invalid (min < 0)" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                     "(min >= 0, max >= 1 or :infinity, min <= max), got: {-1, 2}",
+                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                     "(min >= 0, max >= 0 or :infinity, min <= max), got: {-1, 2}",
                    fn -> arg(%{num_args: {-1, 2}}) end
-    end
-
-    test "integer 0 is invalid (arg requires max >= 1)" do
-      assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                     "(min >= 0, max >= 1 or :infinity, min <= max), got: 0",
-                   fn -> arg(%{num_args: 0}) end
-    end
-
-    test "tuple {0, 0} is invalid (arg requires max >= 1)" do
-      assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                     "(min >= 0, max >= 1 or :infinity, min <= max), got: {0, 0}",
-                   fn -> arg(%{num_args: {0, 0}}) end
     end
 
     test "tuple {3, 1} is invalid (min > max)" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                     "(min >= 0, max >= 1 or :infinity, min <= max), got: {3, 1}",
+                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                     "(min >= 0, max >= 0 or :infinity, min <= max), got: {3, 1}",
                    fn -> arg(%{num_args: {3, 1}}) end
     end
 
     test ":infinity alone is invalid" do
       assert_raise ArgumentError,
-                   "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                     "(min >= 0, max >= 1 or :infinity, min <= max), got: :infinity",
+                   "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                     "(min >= 0, max >= 0 or :infinity, min <= max), got: :infinity",
                    fn -> arg(%{num_args: :infinity}) end
     end
 
     test "other shapes of data are invalid" do
       for na <- [nil, "oops", 1.0, {1}, {1, 2, 3}] do
         assert_raise ArgumentError,
-                     "arg :file under the cmd path [:example] - expected :num_args to be a positive integer or a {min, max} tuple " <>
-                       "(min >= 0, max >= 1 or :infinity, min <= max), got: #{inspect(na)}",
+                     "arg :file under the cmd path [:example] - expected :num_args to be a non-negative integer or a {min, max} tuple " <>
+                       "(min >= 0, max >= 0 or :infinity, min <= max), got: #{inspect(na)}",
                      fn -> arg(%{num_args: na}) end
       end
     end
