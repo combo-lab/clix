@@ -424,8 +424,14 @@ defmodule CLIX.SpecNG.TypesTest do
   end
 
   describe "opt :short -" do
-    test "single letter is valid" do
+    test "single character is valid" do
       assert {_, _} = opt(%{short: "m"})
+    end
+
+    test "single multibyte character is valid" do
+      for s <- ["é", "ä", "中"] do
+        assert {_, _} = opt(%{short: s})
+      end
     end
 
     test "multi-character string is invalid" do
@@ -464,10 +470,16 @@ defmodule CLIX.SpecNG.TypesTest do
                    fn -> opt(%{long: ""}) end
     end
 
-    test "single-character is invalid (length < 2)" do
+    test "single character is invalid (length < 2)" do
       assert_raise ArgumentError,
                    "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2, got: \"m\"",
                    fn -> opt(%{long: "m"}) end
+    end
+
+    test "single multibyte character is invalid (length < 2)" do
+      assert_raise ArgumentError,
+                   "opt :mode under the cmd path [:example] - expected :long to be a string of length >= 2, got: \"中\"",
+                   fn -> opt(%{long: "中"}) end
     end
 
     test "starting with '-' is invalid" do

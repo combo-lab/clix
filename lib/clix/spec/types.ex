@@ -207,15 +207,20 @@ defmodule CLIX.SpecNG.Types do
             "expected :help to be a string, got: #{inspect(value)}"
   end
 
-  defp check_opt_spec!({:short, value}, cmd_path, opt_name) when is_binary(value) and byte_size(value) == 1 do
-    valid_char? = not String.match?(value, ~r/^[\d\-=\s]$/)
+  defp check_opt_spec!({:short, value}, cmd_path, opt_name) when is_binary(value) do
+    cond do
+      String.length(value) != 1 ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "expected :short to be a single-character string, got: #{inspect(value)}"
 
-    if valid_char? do
-      :ok
-    else
-      raise ArgumentError,
-            location(cmd_path, {:opt, opt_name}) <>
-              "expected :short to not be a digit, '-', '=', or whitespace, got: #{inspect(value)}"
+      String.match?(value, ~r/^[\d\-=\s]$/) ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "expected :short to not be a digit, '-', '=', or whitespace, got: #{inspect(value)}"
+
+      true ->
+        :ok
     end
   end
 
@@ -225,8 +230,13 @@ defmodule CLIX.SpecNG.Types do
             "expected :short to be a single-character string, got: #{inspect(value)}"
   end
 
-  defp check_opt_spec!({:long, value}, cmd_path, opt_name) when is_binary(value) and byte_size(value) >= 2 do
+  defp check_opt_spec!({:long, value}, cmd_path, opt_name) when is_binary(value) do
     cond do
+      String.length(value) < 2 ->
+        raise ArgumentError,
+              location(cmd_path, {:opt, opt_name}) <>
+                "expected :long to be a string of length >= 2, got: #{inspect(value)}"
+
       String.starts_with?(value, "-") ->
         raise ArgumentError,
               location(cmd_path, {:opt, opt_name}) <>
