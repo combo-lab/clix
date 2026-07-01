@@ -1,6 +1,28 @@
 defmodule CLIX.SpecNG.Normalization do
   @moduledoc false
 
+  # sugar→canonical, flag cleanup, required adjustment
+  # action 推导、default 注入、num_values 归一化
+  # normalize 层：sugar → canonical、action 推断、default 注入
+  # 转化 cmd_spec, arg_spec, opt_spec 为对应的结构体 Cmd, Arg, Opt
+  #
+  # TODO: arg :required 默认值推导
+  #   arg 默认 required: true,但当 num_values unwrap 到 min == 0 (如 {0, 1}) 且
+  #   用户未显式设 :required 时,应默认 required: false (与 argparse nargs='?' 一致)。
+  #   semantics 已挡住显式 required:true 与 min=0 num_values 的矛盾组合。
+  # TODO: opt :required 默认值推导
+  #   opt 默认 required: false,但 flag action 不应与 required:true 组合
+  #   (semantics 已挡),其余情况按用户显式 :required 或默认 false。
+
+  # 只写 default_value 没写 required，改写 required: false。
+
+  # 对于 flag_action，改写
+  # + value_name: nil
+  # + num_values: {0, 0}
+  # + value_parser: nil,
+  # + required: false
+  # + default_value: nil
+
   @doc false
   def normalize({cmd_name, cmd_pair}) do
     {cmd_name, cmd_pair}
@@ -42,6 +64,6 @@ defmodule CLIX.SpecNG.Normalization do
 
   ##
 
-  # defp normalize_num_args(n) when is_integer(n), do: {n, n}
-  # defp normalize_num_args({min, max}), do: {min, max}
+  # defp normalize_num_values(n) when is_integer(n), do: {n, n}
+  # defp normalize_num_values({min, max}), do: {min, max}
 end

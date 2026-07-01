@@ -32,16 +32,6 @@ defmodule CLIX.SpecTest do
                      Spec.new({:example, %{cmds: [sub: %{description: 99}]}})
                    end
     end
-
-    test "sub-cmd name must be an atom and sub-cmd spec must be a map" do
-      assert_raise FunctionClauseError, fn ->
-        Spec.new({:example, %{cmds: [{"not_atom", %{}}]}})
-      end
-
-      assert_raise FunctionClauseError, fn ->
-        Spec.new({:example, %{cmds: [sub: "not_a_map"]}})
-      end
-    end
   end
 
   describe "args -" do

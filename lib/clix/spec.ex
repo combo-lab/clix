@@ -1,7 +1,6 @@
 defmodule CLIX.Spec do
   @moduledoc false
 
-  @typedoc "The spec."
   @type t :: {cmd_name(), cmd_spec()}
 
   @type help :: String.t() | nil
@@ -11,20 +10,7 @@ defmodule CLIX.Spec do
 
   @type value_name :: String.t() | nil
 
-  @typedoc """
-  The name of a command.
-
-  The top-level cmd_name is the program name. If you name your CLI app as *example*,
-  then you should set the top-level cmd_name as `:example`.
-  """
   @type cmd_name :: atom()
-
-  @typedoc """
-  The parsing spec of a command.
-
-  If the `:help` option isn't set, it will default to the value of `:summary`
-  option.
-  """
   @type cmd_spec :: %{
           help: help(),
           summary: summary(),
@@ -43,40 +29,10 @@ defmodule CLIX.Spec do
           | :float
           | custom_type()
 
-  @typedoc """
-  Custom type.
-
-  Two forms are accepted:
-
-    * `{:custom, fun}` — `fun` is a function of arity 1. Works for inline
-      anonymous functions and captures like `&MyMod.parse/1`.
-    * `{:custom, {mod, fun}}` — refers to a named function of arity 1.
-      Useful when you want the spec to be `Macro.escape`-friendly (e.g., when
-      building the spec at compile time via a module attribute or macro).
-
-  The function (in either form) must accept a `String.t()` and return
-  `{:ok, term()}` on success or `{:error, String.t()}` on failure.
-  """
   @type custom_type ::
           {:custom, (raw_value :: String.t() -> {:ok, value :: term()} | {:error, reason :: String.t()})}
           | {:custom, {module(), atom()}}
 
-  @typedoc """
-  The number of arguments that should be consumed.
-
-    * `:!` - consume one argument.
-    * `:"?"` - consume zero or one argument.
-    * `:*` - consume zero or more arguments.
-    * `:+` - consume one or more arguments.
-
-  # Which to choose?
-
-  |                 | required | optional |
-  |-----------------|----------|----------|
-  | single value    | `:!`     | `:"?"`   |
-  | multiple values | `:+`     | `:*`     |
-
-  """
   @type nargs :: :! | :"?" | :+ | :*
 
   @typedoc "The name of a positional argument."
