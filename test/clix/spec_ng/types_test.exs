@@ -1,7 +1,7 @@
-defmodule CLIX.SpecNG.TypesTest do
+defmodule CLIX.Spec.TypesTest do
   use ExUnit.Case, async: true
 
-  alias CLIX.SpecNG.Types
+  alias CLIX.Spec.Types
 
   defp new!({cmd_name, cmd_spec}) do
     cmd_path = []

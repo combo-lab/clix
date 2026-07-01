@@ -1,8 +1,8 @@
-defmodule CLIX.SpecNG.SemanticsTest do
+defmodule CLIX.Spec.SemanticsTest do
   use ExUnit.Case, async: true
 
-  alias CLIX.SpecNG.Types
-  alias CLIX.SpecNG.Semantics
+  alias CLIX.Spec.Types
+  alias CLIX.Spec.Semantics
 
   defp new!({cmd_name, cmd_spec}) do
     cmd_path = []
